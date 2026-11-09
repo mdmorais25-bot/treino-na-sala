@@ -534,10 +534,14 @@ const CAD={squatC:3.5,bulg:3.5,lunge:3.5,bridge:3,bridge1:3.5,calf:3,calfW:3,pus
 const PACE={lento:1.25,normal:1,rapido:.8};
 const PACEN={lento:'Lento',normal:'Normal',rapido:'Rápido'};
 const countOn=()=>S.count!==false;
-function repInfo(r){const nums=(r.match(/\d+/g)||['10']).map(Number),m=r.match(/por (\w+)/);return {n:Math.max(...nums),sides:m?2:1,word:m?m[1]:''};}
+/* lados: alternado = troca a cada repetição; unilateral = todas de um lado e depois do outro */
+const SIDE={perna:[['a perna direita','a perna esquerda'],['Direita','Esquerda']],braço:[['o braço direito','o braço esquerdo'],['Direito','Esquerdo']],lado:[['o braço direito','o braço esquerdo'],['Braço direito','Braço esquerdo']]};
+function repInfo(r,name){const nums=(r.match(/\d+/g)||['10']).map(Number),m=r.match(/por (\S+)/),word=m?m[1]:'';
+  return {n:Math.max(...nums),sides:m?2:1,word,alt:!!m&&/alternad|com salto|perdigueiro/i.test(name||''),sd:SIDE[word]||SIDE.lado};}
 const cadOf=s=>(CAD[s.f]||3)*(PACE[S.pace]||1)*(GEST()?1.15:1);
-const LEAD=4.5,SWAP=4;
-const stepSec=s=>{if(s.t)return s.t;if(!countOn())return /por /.test(s.r)?60:40;const ri=repInfo(s.r);return LEAD+ri.n*cadOf(s)*ri.sides+(ri.sides>1?SWAP:0)+2;};
+const LEAD=4.5,LEADGO=1.2,SWAP=4;
+const stepSec=s=>{if(s.t)return s.t+(s.k==='time'?3:0);if(!countOn())return /por /.test(s.r)?60:40;const ri=repInfo(s.r,s.n);
+  return LEAD+ri.n*cadOf(s)*ri.sides+(ri.sides>1&&!ri.alt?SWAP:0)+2;};
 const estSec=st=>st.reduce((a,s)=>a+stepSec(s),0);
 const cache={};
 function config(type){
@@ -823,9 +827,13 @@ setInterval(()=>{if(AWAKE.on&&document.visibilityState==='visible'){wakeLockOn()
 let X=null,ac=null,ptVoice=null;
 function pickVoice(){try{const v=speechSynthesis.getVoices();ptVoice=v.find(x=>/^pt[-_]BR/i.test(x.lang))||v.find(x=>/^pt/i.test(x.lang))||null;}catch(e){}}
 try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}catch(e){}
-function say(t,keep){
-  if(S.voice===false)return;
-  try{if(!keep)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';if(ptVoice)u.voice=ptVoice;u.rate=1.05;speechSynthesis.speak(u);}catch(e){}
+function say(t,keep,cb){
+  /* cb roda quando a fala termina (ou, por segurança, depois de um tempo proporcional ao texto) */
+  let done=false;const fin=()=>{if(done)return;done=true;if(cb)cb();};
+  if(S.voice===false){if(cb)setTimeout(fin,0);return;}
+  try{if(!keep)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';if(ptVoice)u.voice=ptVoice;u.rate=1.05;
+    if(cb){u.onend=fin;u.onerror=fin;}speechSynthesis.speak(u);}catch(e){fin();}
+  if(cb)setTimeout(fin,Math.min(15000,1200+t.length*85));
 }
 const NUM={3:'três',2:'dois',1:'um'};
 const phaseOf=s=>/^(Série|Volta)/.test(s.ph)?'main':s.ph;
@@ -837,11 +845,12 @@ function introFor(i){
   const s=X.steps[i],prev=X.steps.slice(0,i).reverse().find(z=>z.k!=='rest');
   return (!prev||phaseOf(prev)!==phaseOf(s))&&INTRO[phaseOf(s)]?INTRO[phaseOf(s)]+' ':'';
 }
-function announce(s){
+function announce(s,cb){
   const intro=s.k==='rest'?'':introFor(X.i);
-  if(s.k==='reps'){const ri=repInfo(s.r);
-    say(`${intro}${s.n}. ${ri.n} repetições${ri.sides>1?' por '+ri.word:''}.${countOn()?' Prepare-se... vamos lá!':''}`);}
-  else if(s.k==='time')say(`${intro}${s.n}. ${s.t} segundos.`);
+  if(s.k==='reps'){const ri=repInfo(s.r,s.n),go=countOn()?' Prepare-se... vamos lá!':'';
+    const how=ri.alt?`${ri.n} repetições de cada lado, alternando. Comece com ${ri.sd[0][0]}.`:ri.sides>1?`${ri.n} repetições de cada lado. Comece com ${ri.sd[0][0]}.`:`${ri.n} repetições.`;
+    say(`${intro}${s.n}. ${how}${go}`,false,cb);}
+  else if(s.k==='time')say(`${intro}${s.n}. ${s.t} segundos.`,false,cb);
   else if(s.ph==='Prepare-se')say('Prepare-se. O treino começa com o aquecimento.');
   else if(s.tr)say(`Aquecimento concluído! Respire fundo e beba um gole de água. Em ${s.t} segundos começa o treino, com ${s.next}.`);
   else{const m=(s.next||'').match(/^(.*) · série (\d+)$/);
@@ -850,19 +859,28 @@ function announce(s){
 /* contagem guiada: fala cada repetição no ritmo do exercício */
 function repTick(s){
   const r=X.rep,now=Date.now();r.t+=Math.min(now-r.last,500)/1000;r.last=now;
-  const ri=repInfo(s.r),cad=cadOf(s);
-  if(r.stage==='lead'&&r.t>=LEAD){r.stage='count';r.t0=r.t;}
+  const ri=repInfo(s.r,s.n),cad=cadOf(s);
+  if(r.stage==='lead'&&r.t>=LEADGO){r.stage='count';r.t0=r.t;}
   if(r.stage==='count'){
-    const k=Math.min(ri.n,Math.floor((r.t-r.t0)/cad));
-    if(k>r.i){r.i=k;if(S.voice===false)beep(990,.08);else say(k===ri.n&&r.side===ri.sides?k+'. Última!':String(k));repShow(ri);}
-    if(r.i>=ri.n&&r.t-r.t0>=ri.n*cad+1.6){
-      if(r.side<ri.sides){r.side++;r.i=0;r.stage='swap';r.t0=r.t;say(`Troque de ${ri.word==='perna'?'perna':ri.word==='braço'?'braço':'lado'}.`,true);repShow(ri);}
-      else{r.stage='done';r.t0=r.t;say('Série concluída! Muito bem.',true);}
+    if(ri.alt){
+      /* alternado: cada movimento troca de lado; o número sobe a cada par */
+      const M=ri.n*2,j=Math.min(M,Math.floor((r.t-r.t0)/cad));
+      if(j>r.j){r.j=j;r.i=Math.ceil(j/2);r.side=(j-1)%2+1;const nm=ri.sd[1][r.side-1];
+        if(S.voice===false)beep(r.side===1?990:740,.08);else say(`${nm} ${r.i}${j===M?'. Última!':''}`);repShow(ri);}
+      if(r.j>=M&&r.t-r.t0>=M*cad+1.6){r.stage='done';r.t0=r.t;say('Série concluída! Muito bem.',true);}
+    }else{
+      const k=Math.min(ri.n,Math.floor((r.t-r.t0)/cad));
+      if(k>r.i){r.i=k;if(S.voice===false)beep(990,.08);else say(k===ri.n&&r.side===ri.sides?k+'. Última!':String(k));repShow(ri);}
+      if(r.i>=ri.n&&r.t-r.t0>=ri.n*cad+1.6){
+        if(r.side<ri.sides){r.side++;r.i=0;r.stage='swap';r.t0=r.t;say(`Agora, ${ri.sd[0][1]}.`,true);repShow(ri);}
+        else{r.stage='done';r.t0=r.t;say('Série concluída! Muito bem.',true);}
+      }
     }
   }else if(r.stage==='swap'&&r.t-r.t0>=SWAP){r.stage='count';r.t0=r.t;}
   else if(r.stage==='done'&&r.t-r.t0>=2.4){r.stage='end';advance();}
 }
-function repShow(ri){const b=$('#repn'),u=$('#repside');if(b)b.textContent=X.rep.i;if(u&&ri.sides>1)u.textContent=`${ri.word} ${X.rep.side} de 2`;}
+const sideLabel=ri=>{const t=ri.sd[0][(X.rep?X.rep.side:1)-1].replace(/^(a|o) /,'');return t[0].toUpperCase()+t.slice(1);};
+function repShow(ri){const b=$('#repn'),u=$('#repside');if(b)b.textContent=X.rep.i;if(u&&ri.sides>1)u.textContent=sideLabel(ri);}
 function beep(f,d){try{if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
 async function startSession(type){
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
@@ -876,11 +894,17 @@ async function startSession(type){
   say(`Treino ${type}. Veja os exercícios antes de começar, ou pule a demonstração.`);
 }
 function beginWork(){X.mode='run';X.t0=Date.now();X.i=0;enter();}
-function enter(){const s=X.steps[X.i];X.paused=false;X.last=-1;X.said={};X.stepStart=Date.now();X.rep=s.k==='reps'?{t:0,last:Date.now(),i:0,side:1,stage:'lead'}:null;if(s.t){X.left=s.t;X.end=Date.now()+s.t*1000;}renderS();announce(s);}
+function enter(){const s=X.steps[X.i];X.paused=false;X.last=-1;X.said={};X.stepStart=Date.now();
+  X.rep=s.k==='reps'?{t:0,last:Date.now(),i:0,j:0,side:1,stage:'lead'}:null;
+  /* exercícios só começam depois que a voz termina a instrução */
+  X.wait=s.k!=='rest';const tok=X.tok=(X.tok||0)+1;
+  if(s.t){X.left=s.t;X.end=Date.now()+s.t*1000;}renderS();announce(s,()=>go(tok));}
+function go(tok){if(!X||X.tok!==tok||!X.wait)return;X.wait=false;const s=X.steps[X.i];if(!s)return;
+  if(s.t)X.end=Date.now()+X.left*1000;if(X.rep)X.rep.last=Date.now();renderS();}
 function advance(){X.i++;if(X.i>=X.steps.length){finish();return;}beep(1320,.25);enter();}
 function finish(){X.done=true;X.mins=Math.max(1,Math.round((Date.now()-X.t0)/60000));renderS();say('Treino concluído. Mandou bem!');}
 setInterval(()=>{
-  if(!X||X.done||X.paused||X.confirm||X.mode==='demo')return;const s=X.steps[X.i];
+  if(!X||X.done||X.paused||X.confirm||X.wait||X.mode==='demo')return;const s=X.steps[X.i];
   if(s.k==='reps'){if(countOn()&&X.rep)repTick(s);else{const el=$('#elapsed');if(el)el.textContent=fmt((Date.now()-X.stepStart)/1000);}return;}
   X.left=(X.end-Date.now())/1000;const sec=Math.ceil(X.left);
   if(s.k==='time'&&s.t>=40&&sec===Math.ceil(s.t/2)&&!X.said.half){X.said.half=1;say('Metade.');}
@@ -914,16 +938,17 @@ function renderS(){
   const s=X.steps[X.i],pct=X.i/X.steps.length*100;
   const cls=s.k==='rest'?'rest':['Aquecimento','Mobilidade','Alongamento','Respiração'].includes(s.ph)?'prep':'work';
   let main,ctrl;
-  if(s.k==='reps'){const side=s.r.match(/por \w+/),ri=repInfo(s.r);
+  const waitMsg=X.wait?`<p class="next" style="margin-top:6px"><b>Ouça a instrução.</b> Começa quando a voz terminar.</p>`:'';
+  if(s.k==='reps'){const side=s.r.match(/por \S+/),ri=repInfo(s.r,s.n);
     main=countOn()?`<div><div class="mainrow"><span class="big num" id="repn">${X.rep?X.rep.i:0}</span><span class="unit">de ${ri.n} repetições</span></div>
-      <p class="next" style="margin-top:6px">${ri.sides>1?`<b id="repside">${ri.word} ${X.rep?X.rep.side:1} de 2</b> · `:''}A voz conta no ritmo do exercício</p></div>`
-      :`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
+      ${waitMsg||`<p class="next" style="margin-top:6px">${ri.sides>1?`<b id="repside">${sideLabel(ri)}</b> · `:''}${ri.alt?'Alternando a cada repetição':ri.sides>1?'Um lado de cada vez':'A voz conta no ritmo do exercício'}</p>`}</div>`
+      :`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \S+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
       <p class="next" style="margin-top:6px">Tempo nesta série: <b class="num" id="elapsed" style="font-size:18px">0:00</b></p></div>`;
-    ctrl=countOn()?`<button class="btn wide" data-s="pause">${X.paused?'Continuar':'Pausar'}</button><button class="ghost" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button>`
+    ctrl=countOn()?`${X.wait?'<button class="btn wide" data-s="now">Começar agora</button>':`<button class="btn wide" data-s="pause">${X.paused?'Continuar':'Pausar'}</button>`}<button class="ghost" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button>`
       :`<button class="btn wide" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
-  else{const v=X.paused?X.left:s.t;main=`<div class="mainrow"><span class="big num" id="clock">${s.t>=60?fmt(v):Math.ceil(v)}</span><span class="unit">${s.t>=60?'':'segundos'}</span></div>`;
+  else{const v=X.paused?X.left:s.t;main=`<div class="mainrow"><span class="big num" id="clock">${s.t>=60?fmt(v):Math.ceil(v)}</span><span class="unit">${s.t>=60?'':'segundos'}</span></div>${s.k==='rest'?'':waitMsg}`;
     ctrl=s.k==='rest'?`<button class="btn wide" data-s="skip">${s.tr?'Começar o treino agora':'Pular descanso'}</button><button class="ghost" data-s="minus">−15 s</button><button class="ghost" data-s="plus">+15 s</button><button class="ghost" data-s="pause">${X.paused?'Continuar':'Pausar'}</button>`
-      :`<button class="btn wide" data-s="pause">${X.paused?'Continuar':'Pausar'}</button><button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
+      :`${X.wait?'<button class="btn wide" data-s="now">Começar agora</button>':`<button class="btn wide" data-s="pause">${X.paused?'Continuar':'Pausar'}</button>`}<button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
   let title,illo,sub;
   if(s.k==='rest'){
     const nx=X.steps.slice(X.i+1).find(z=>z.k!=='rest');
@@ -959,7 +984,8 @@ $('#session').addEventListener('click',e=>{
   else if(a==='plus'){X.end+=15000;X.left+=15;if(X.paused)renderS();}
   else if(a==='minus'){const nl=Math.max(3,X.left-15);X.end-=(X.left-nl)*1000;X.left=nl;if(X.paused)renderS();}
   else if(a==='pause'){if(X.rep)X.rep.last=Date.now();if(X.paused){X.end=Date.now()+X.left*1000;X.paused=false;}else{X.left=(X.end-Date.now())/1000;X.paused=true;}renderS();}
-  else if(a==='close'){if(s.t&&!X.paused)X.left=(X.end-Date.now())/1000;X.confirm=true;renderS();}
+  else if(a==='now'){try{speechSynthesis.cancel();}catch(e){}go(X.tok);}
+  else if(a==='close'){if(s.t&&!X.paused&&!X.wait)X.left=(X.end-Date.now())/1000;X.confirm=true;renderS();}
   else if(a==='resume'){X.confirm=false;if(X.rep)X.rep.last=Date.now();if(s.t)X.end=Date.now()+X.left*1000;renderS();}
   else if(a==='quit')closeS();
 });
