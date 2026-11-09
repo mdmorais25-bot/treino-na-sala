@@ -123,9 +123,15 @@ input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:
 .next{font-size:14px;opacity:.9}
 .s-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .s-ctrl .wide{grid-column:1/-1;font-size:18px;padding:16px}
+.vbtn{background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 10px;font-size:12px;border-radius:99px;font-weight:600;white-space:nowrap}
+.vbtn[aria-pressed="true"]{color:var(--ink);border-color:var(--ink)}
+.s-ctrl button:disabled{opacity:.4;cursor:default}
+#clock{display:inline-block}
+@keyframes pop{0%{transform:scale(1.25);opacity:.6}100%{transform:scale(1);opacity:1}}
+.stage.tick #clock{animation:pop .45s ease-out}
 .confirm{position:absolute;inset:0;background:rgba(10,15,20,.55);display:flex;align-items:center;justify-content:center;padding:24px;border-radius:22px}
 .confirm .card{max-width:340px}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -537,21 +543,44 @@ document.addEventListener('click',e=>{
 });
 
 /* ---------- sessão ---------- */
-let X=null,ac=null,lock=null;
+let X=null,ac=null,lock=null,ptVoice=null;
+function pickVoice(){try{const v=speechSynthesis.getVoices();ptVoice=v.find(x=>/^pt[-_]BR/i.test(x.lang))||v.find(x=>/^pt/i.test(x.lang))||null;}catch(e){}}
+try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}catch(e){}
+function say(t,keep){
+  if(S.voice===false)return;
+  try{if(!keep)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';if(ptVoice)u.voice=ptVoice;u.rate=1.05;speechSynthesis.speak(u);}catch(e){}
+}
+const NUM={3:'três',2:'dois',1:'um'};
+function announce(s){
+  if(s.k==='reps')say(`${s.n}. ${s.r.replace('a 10','a dez')} repetições.`);
+  else if(s.k==='time')say(`${s.n}. ${s.t} segundos.`);
+  else if(s.ph==='Prepare-se')say(`Prepare-se. Começando com ${s.next}.`);
+  else say(`Descanse. A seguir, ${s.next||'próximo exercício'}.`);
+}
 function beep(f,d){try{if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
 async function startSession(type){
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
   try{lock=await navigator.wakeLock?.request('screen');}catch(e){lock=null;}
-  X={type,steps:makeSteps(type,config(type)),i:0,t0:Date.now(),end:0,left:0,paused:false,last:-1,confirm:false,done:false};
-  $('#session').hidden=false;document.body.style.overflow='hidden';enter();
+  const cfg=config(type),steps=makeSteps(type,cfg),lv=S.levels[type],w=W[type];
+  steps.unshift({k:'rest',ph:'Prepare-se',t:5,next:steps[0].n});
+  const demo=w.circuit?w.items[lv].map(e=>({...e,dose:`${w.work[lv]}s de esforço · ${cfg.rounds} ${cfg.rounds>1?'voltas':'volta'}`}))
+    :cfg.ex.map(e=>({...e,dose:e.s+' séries de '+(e.h?e.h+' segundos':e.r+' repetições').replace(' repetições',/por /.test(e.r||'')?'':' repetições')}));
+  X={type,steps,demo,di:0,mode:'demo',i:0,t0:Date.now(),end:0,left:0,paused:false,last:-1,confirm:false,done:false};
+  $('#session').hidden=false;document.body.style.overflow='hidden';renderS();
+  say(`Treino ${type}. Veja os exercícios antes de começar, ou pule a demonstração.`);
 }
-function enter(){const s=X.steps[X.i];X.paused=false;X.last=-1;if(s.t){X.left=s.t;X.end=Date.now()+s.t*1000;}renderS();}
+function beginWork(){X.mode='run';X.t0=Date.now();X.i=0;enter();}
+function enter(){const s=X.steps[X.i];X.paused=false;X.last=-1;X.said={};X.stepStart=Date.now();if(s.t){X.left=s.t;X.end=Date.now()+s.t*1000;}renderS();announce(s);}
 function advance(){X.i++;if(X.i>=X.steps.length){finish();return;}beep(1320,.25);enter();}
-function finish(){X.done=true;X.mins=Math.max(1,Math.round((Date.now()-X.t0)/60000));renderS();}
+function finish(){X.done=true;X.mins=Math.max(1,Math.round((Date.now()-X.t0)/60000));renderS();say('Treino concluído. Mandou bem!');}
 setInterval(()=>{
-  if(!X||X.done||X.paused||X.confirm)return;const s=X.steps[X.i];if(!s.t)return;
+  if(!X||X.done||X.paused||X.confirm||X.mode==='demo')return;const s=X.steps[X.i];
+  if(s.k==='reps'){const el=$('#elapsed');if(el)el.textContent=fmt((Date.now()-X.stepStart)/1000);return;}
   X.left=(X.end-Date.now())/1000;const sec=Math.ceil(X.left);
-  if(sec<=3&&sec>0&&sec!==X.last){X.last=sec;beep(880,.12);}
+  if(s.k==='time'&&s.t>=40&&sec===Math.ceil(s.t/2)&&!X.said.half){X.said.half=1;say('Metade.');}
+  if(s.k==='time'&&s.t>=30&&sec===10&&!X.said.ten){X.said.ten=1;say('Faltam dez segundos.');}
+  if(sec<=3&&sec>0&&sec!==X.last){X.last=sec;if(S.voice===false)beep(880,.12);else say(NUM[sec]);
+    const st=document.querySelector('.stage');if(st){st.classList.remove('tick');void st.offsetWidth;st.classList.add('tick');}}
   if(X.left<=0){advance();return;}
   const el=$('#clock');if(el)el.textContent=s.t>=60?fmt(X.left):sec;
 },200);
@@ -565,11 +594,23 @@ function renderS(){
       <div class="s-ctrl">${Object.entries(FEEL).map(([k,v],i)=>`<button class="${i===1?'btn wide':'ghost'}" data-feel="${k}">${v}</button>`).join('')}</div></div>`;
     return;
   }
+  const vbtn=`<button class="vbtn" data-s="voice" aria-pressed="${S.voice!==false}">Voz ${S.voice!==false?'ligada':'desligada'}</button>`;
+  if(X.mode==='demo'){
+    const e=X.demo[X.di],n=X.demo.length,last=X.di===n-1;
+    el.innerHTML=`<div class="s-in"><div class="s-top"><div class="bar"><i style="width:${(X.di+1)/n*100}%;background:var(--accent)"></i></div>${vbtn}<button class="x" data-s="close" aria-label="Fechar">×</button></div>
+      <div class="stage prep"><div><span class="label">Demonstração · ${X.di+1} de ${n}</span><h2>${e.n}</h2></div>${fig(e.f)}
+      <div><p class="cue" style="font-weight:700;margin-bottom:6px">${e.dose}</p><p class="cue">${e.c}</p></div></div>
+      <div class="s-ctrl"><button class="btn wide" data-s="${last?'go':'dnext'}">${last?'Começar treino':'Próximo exercício'}</button>
+      <button class="ghost" data-s="dback" ${X.di===0?'disabled':''}>Voltar</button><button class="ghost" data-s="go">Pular demonstração</button></div>
+      ${X.confirm?confirmBox():''}</div>`;
+    return;
+  }
   const s=X.steps[X.i],pct=X.i/X.steps.length*100;
   const cls=s.k==='rest'?'rest':s.ph==='Aquecimento'||s.ph==='Alongamento'?'prep':'work';
   let main,ctrl;
   if(s.k==='reps'){const side=s.r.match(/por \w+/);
-    main=`<div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>`;
+    main=`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
+      <p class="next" style="margin-top:6px">Tempo nesta série: <b class="num" id="elapsed" style="font-size:18px">0:00</b></p></div>`;
     ctrl=`<button class="btn wide" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
   else{const v=X.paused?X.left:s.t;main=`<div class="mainrow"><span class="big num" id="clock">${s.t>=60?fmt(v):Math.ceil(v)}</span><span class="unit">${s.t>=60?'':'segundos'}</span></div>`;
     ctrl=s.k==='rest'?`<button class="btn wide" data-s="skip">Pular descanso</button><button class="ghost" data-s="plus">+15 s</button><button class="ghost" data-s="pause">${X.paused?'Continuar':'Pausar'}</button>`
@@ -581,16 +622,27 @@ function renderS(){
     illo=nx?fig(nx.f):'';
     sub=s.next?`<p class="next">A seguir: <b>${s.next}</b></p>`:'';
   }else{title=s.n;illo=fig(s.f);sub=`<p class="cue">${s.c}</p>`+(s.next?`<p class="next">A seguir: ${s.next}</p>`:'');}
-  el.innerHTML=`<div class="s-in"><div class="s-top"><div class="bar"><i style="width:${pct}%"></i></div><button class="x" data-s="close" aria-label="Encerrar treino">×</button></div>
+  el.innerHTML=`<div class="s-in"><div class="s-top"><div class="bar"><i style="width:${pct}%"></i></div>${vbtn}<button class="x" data-s="close" aria-label="Encerrar treino">×</button></div>
     <div class="stage ${cls}"><div><span class="label">${s.ph}</span><h2>${title}</h2></div>${illo}${main}<div>${sub}</div></div>
     <div class="s-ctrl">${ctrl}</div>
-    ${X.confirm?`<div class="confirm"><div class="card"><h3>Encerrar o treino?</h3><p class="muted">Esta sessão não vai entrar no histórico.</p><div class="row"><button class="btn" data-s="resume">Continuar treinando</button><button class="ghost" data-s="quit">Encerrar</button></div></div></div>`:''}</div>`;
+    ${X.confirm?confirmBox():''}</div>`;
 }
+const confirmBox=()=>`<div class="confirm"><div class="card"><h3>Encerrar o treino?</h3><p class="muted">Esta sessão não vai entrar no histórico.</p><div class="row"><button class="btn" data-s="resume">Continuar treinando</button><button class="ghost" data-s="quit">Encerrar</button></div></div></div>`;
 function closeS(){$('#session').hidden=true;document.body.style.overflow='';try{lock?.release();}catch(e){}lock=null;X=null;route();}
 $('#session').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||!X)return;const a=b.dataset.s;
   if(b.dataset.feel){S.history.push({date:new Date().toISOString(),type:X.type,level:S.levels[X.type],mins:X.mins,feel:b.dataset.feel});
     if(nextType()===X.type)S.rot=(S.rot+1)%rotation().length;save();closeS();location.hash='historico';return;}
+  if(a==='voice'){S.voice=S.voice===false;save();if(S.voice===false){try{speechSynthesis.cancel();}catch(e){}}else say('Voz ligada.');renderS();return;}
+  if(X.mode==='demo'){
+    if(a==='dnext'){X.di++;renderS();say(X.demo[X.di].n);}
+    else if(a==='dback'&&X.di>0){X.di--;renderS();say(X.demo[X.di].n);}
+    else if(a==='go')beginWork();
+    else if(a==='close'){X.confirm=true;renderS();}
+    else if(a==='resume'){X.confirm=false;renderS();}
+    else if(a==='quit')closeS();
+    return;
+  }
   const s=X.steps[X.i];
   if(a==='ok'||a==='skip')advance();
   else if(a==='back'){if(X.i>0){X.i--;enter();}}
