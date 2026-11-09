@@ -97,6 +97,10 @@ input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:
 .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px}
 .kv dt{color:var(--muted)} .kv dd{margin:0;font-weight:600}
 .notes{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+details.more{border-top:1px solid var(--line);padding-top:10px}
+details.more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);list-style-position:inside}
+details.more summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+details.more[open] summary{color:var(--ink);margin-bottom:4px}
 .fig{display:block}
 .fig .flr{stroke:currentColor;opacity:.3}
 .fig .prop{stroke:currentColor;opacity:.55;fill:none}
@@ -203,7 +207,15 @@ const PO={
  circB:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,70,18,76,8,50,18,44,8],
  hamB:[86,58,78,52,58,54,60,72,60,90,58,72,58,90,80,66,80,80,79,66,79,80],
  quad:[60,15,60,25,60,54,61,72,61,90,61,72,50,58,68,36,78,36,55,40,50,57],
- chest:[62,15,61,25,61,54,62,72,62,90,59,72,59,90,48,28,36,30,60,39,59,52]
+ chest:[62,15,61,25,61,54,62,72,62,90,59,72,59,90,48,28,36,30,60,39,59,52],
+ swingA:[60,15,60,25,60,54,72,70,84,82,58,72,58,90,66,40,62,52,64,40,61,52],
+ swingB:[60,15,60,25,60,54,52,72,42,86,58,72,58,90,66,40,62,52,64,40,61,52],
+ hugB:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,54,34,44,36,66,34,76,36],
+ catA:[88,56,78,66,46,66,46,88,28,88,46,88,28,88,78,77,78,88,77,77,77,88],
+ catB:[82,74,78,64,46,64,46,88,28,88,46,88,28,88,78,76,78,88,77,76,77,88],
+ calfS:[78,28,72,36,60,58,72,74,74,90,48,74,36,90,82,36,90,36,81,37,89,37],
+ cross:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,52,30,40,30,56,40,48,32],
+ tri:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,66,6,58,18,52,12,64,7]
 };
 const chair=(x1,x2,y)=>`M${x1} ${y}H${x2}M${x1+2} ${y}V90M${x2-2} ${y}V90M${x1} ${y}V${y-20}`;
 const FIG={
@@ -218,7 +230,9 @@ const FIG={
  bird:{a:'birdA',b:'birdB'}, sup:{a:'supA',b:'supB'}, hol:{a:'holA',b:'holB'},
  jack:{a:'frontA',b:'jackB'}, clim:{a:'climA',b:'climB',fast:1}, run:{a:'runA',b:'runB',fast:1},
  burpee:{a:'burA',b:'burB'}, jump:{a:'squat',b:'air'}, circ:{a:'circA',b:'circB'},
- ham:{a:'stand',b:'hamB'}, quad:{a:'quad',b:'quad'}, chest:{a:'chest',b:'chest',p:'M34 4V90'}
+ ham:{a:'stand',b:'hamB'}, quad:{a:'quad',b:'quad'}, chest:{a:'chest',b:'chest',p:'M34 4V90'},
+ swing:{a:'swingA',b:'swingB'}, hug:{a:'circA',b:'hugB'}, cat:{a:'catA',b:'catB'},
+ calfS:{a:'calfS',b:'calfS',p:'M92 6V90'}, cross:{a:'cross',b:'cross'}, tri:{a:'tri',b:'tri'}
 };
 function fig(k){const f=FIG[k];if(!f)return '';
   return `<svg class="fig" viewBox="0 0 120 96" data-fig="${k}" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -291,9 +305,35 @@ const W={
    [{n:'Polichinelo com agachamento',f:'jack',c:'Polichinelo e, ao abrir as pernas, agache.'},{n:'Agachamento com salto',f:'jump',c:'Aterrisse macio e já desça para o próximo.'},{n:'Escalador',f:'clim',c:'Máxima velocidade mantendo o quadril estável.'},{n:'Joelho alto',f:'run',c:'Sprint parado. Braços fortes.'},{n:'Burpee com flexão',f:'burpee',c:'Flexão completa embaixo, salto com braços para cima.'}]
   ]}
 };
-const WARM=[{n:'Marcha no lugar',t:40,f:'run',c:'Joelhos sobem e braços acompanham.'},{n:'Círculos de braço',t:30,f:'circ',c:'15s para frente, 15s para trás.'},{n:'Agachamento lento',t:40,f:'squat',c:'Desça devagar e acorde as pernas.'},{n:'Polichinelo leve',t:40,f:'jack',c:'Aumente o ritmo aos poucos.'}];
-const WARM_S=[{...WARM[0],t:30},{...WARM[2],t:30},{...WARM[3],t:30}];
-const COOL=[{n:'Alongamento de posterior',t:30,f:'ham',c:'Em pé, incline o tronco com joelhos levemente dobrados.'},{n:'Alongamento de quadríceps',t:30,f:'quad',c:'Segure o pé atrás. 15s cada perna.'},{n:'Alongamento de peito',t:30,f:'chest',c:'Mão no batente da porta, gire o corpo para o outro lado.'}];
+const WARM=[{n:'Marcha no lugar',t:40,f:'run',c:'Joelhos sobem e braços acompanham. Esquente o corpo.'},{n:'Polichinelo leve',t:40,f:'jack',c:'Aumente o ritmo aos poucos.'}];
+const WARM_S=WARM.map(e=>({...e,t:30}));
+/* mobilidade dinâmica de 2 min, específica de cada treino */
+const MOB={
+ A:[{n:'Balanço de perna',t:30,f:'swing',c:'Mão na parede, balance a perna para frente e para trás. 15s cada perna.'},
+    {n:'Agachamento com pausa',t:30,f:'squat',c:'Desça devagar e fique 2s embaixo, empurrando os joelhos para fora.'},
+    {n:'Afundo lento',t:30,f:'lunge',c:'Passo à frente, desça devagar e volte. Alterne as pernas.'},
+    {n:'Ponte lenta',t:30,f:'bridge',c:'Suba e desça o quadril devagar para acordar o glúteo.'}],
+ B:[{n:'Círculos de braço',t:30,f:'circ',c:'Círculos grandes: 15s para frente, 15s para trás.'},
+    {n:'Abre e fecha braços',t:30,f:'hug',c:'Braços na altura do ombro. Cruze na frente e abra bem para trás.'},
+    {n:'Gato e camelo',t:30,f:'cat',c:'De quatro apoios, arredonde as costas e depois afunde, bem devagar.'},
+    {n:'Flexão inclinada lenta',t:30,f:'inc',c:'Mãos na mesa ou parede. Desça e suba devagar, sem forçar.'}],
+ C:[{n:'Balanço de perna',t:30,f:'swing',c:'Mão na parede, balance a perna para frente e para trás. 15s cada perna.'},
+    {n:'Agachamento com pausa',t:30,f:'squat',c:'Desça devagar e fique 2s embaixo.'},
+    {n:'Círculos de braço',t:30,f:'circ',c:'Círculos grandes: 15s para frente, 15s para trás.'},
+    {n:'Escalador lento',t:30,f:'clim',c:'Leve um joelho de cada vez ao peito, sem pressa.'}]
+};
+/* alongamento parado no final, para os músculos que trabalharam */
+const COOLS={
+ A:[{n:'Alongamento de posterior',t:30,f:'ham',c:'Em pé, incline o tronco com os joelhos levemente dobrados. Sem balançar.'},
+    {n:'Alongamento de quadríceps',t:30,f:'quad',c:'Segure o pé atrás, joelhos juntos. 15s cada perna.'},
+    {n:'Panturrilha na parede',t:30,f:'calfS',c:'Mãos na parede, perna de trás esticada e calcanhar no chão. 15s cada lado.'}],
+ B:[{n:'Alongamento de peito',t:30,f:'chest',c:'Mão no batente da porta, gire o corpo para o outro lado. 15s cada lado.'},
+    {n:'Ombro cruzado',t:30,f:'cross',c:'Puxe o braço esticado na frente do peito. 15s cada lado.'},
+    {n:'Alongamento de tríceps',t:30,f:'tri',c:'Mão atrás da cabeça, a outra puxa o cotovelo de leve. 15s cada lado.'}],
+ C:[{n:'Alongamento de posterior',t:30,f:'ham',c:'Em pé, incline o tronco com os joelhos levemente dobrados.'},
+    {n:'Alongamento de quadríceps',t:30,f:'quad',c:'Segure o pé atrás. 15s cada perna.'},
+    {n:'Alongamento de peito',t:30,f:'chest',c:'Mão no batente da porta, gire o corpo para o outro lado.'}]
+};
 const ROTS={gordura:['A','C','B','C'],forca:['A','B','C'],cond:['C','A','C','B'],geral:['A','C','B']};
 const FEEL={facil:'Fácil',ok:'Na medida',pesado:'Pesado'};
 const GOALS={gordura:'Perder gordura',forca:'Ganhar força',cond:'Melhorar o fôlego',geral:'Um pouco de tudo'};
@@ -342,8 +382,9 @@ function weeklyGoal(){const d=S.profile?.days||4,a=adaptInfo();return a?Math.min
 
 /* ---------- montagem do treino pelo tempo disponível ---------- */
 function makeSteps(type,o){
-  const lv=S.levels[type],w=W[type],st=[],warm=o.warm?WARM:WARM_S;
-  warm.forEach((e,i)=>st.push({k:'time',ph:'Aquecimento',n:e.n,c:e.c,f:e.f,t:e.t,next:i<warm.length-1?warm[i+1].n:null}));
+  const lv=S.levels[type],w=W[type],st=[];
+  const pre=[...(o.warm?WARM:WARM_S).map(e=>({...e,ph:'Aquecimento'})),...MOB[type].map(e=>({...e,ph:'Mobilidade'}))];
+  pre.forEach((e,i)=>st.push({k:'time',ph:e.ph,n:e.n,c:e.c,f:e.f,t:e.t,next:i<pre.length-1?pre[i+1].n:null}));
   if(w.circuit){
     const ex=w.items[lv],R=o.rounds;
     st.push({k:'rest',ph:'Prepare-se',t:15,next:ex[0].n});
@@ -359,7 +400,7 @@ function makeSteps(type,o){
       if(!(lastSet&&lastEx))st.push({k:'rest',ph:'Descanso',t:REST[lv],next:lastSet?o.ex[i+1].n:e.n+' · série '+(s+2)});
     }});
   }
-  if(o.cool)COOL.forEach(e=>st.push({k:'time',ph:'Alongamento',n:e.n,c:e.c,f:e.f,t:e.t}));
+  if(o.cool)COOLS[type].forEach(e=>st.push({k:'time',ph:'Alongamento',n:e.n,c:e.c,f:e.f,t:e.t}));
   return st;
 }
 const stepSec=s=>s.t||(/por /.test(s.r)?60:40);
@@ -368,7 +409,7 @@ const cache={};
 function config(type){
   const lv=S.levels[type],key=type+lv+S.dur;if(cache[key])return cache[key];
   const w=W[type],goal=S.dur*60,cands=[];
-  for(const warm of [true,false])for(const cool of [true,false]){
+  for(const warm of [true,false])for(const cool of [true]){
     const pen=(warm?0:60)+(cool?0:90);
     if(w.circuit){for(let R=1;R<=w.maxR[lv];R++)cands.push({warm,cool,rounds:R,pen});}
     else for(let n=5;n>=3;n--)for(const adj of [1,0,-1]){
@@ -401,7 +442,9 @@ const durSeg=()=>`<div class="seg" style="--n:4" role="group" aria-label="Tempo 
 const exRow=(e,cue)=>`<div class="ex">${fig(e.f)}<b>${e.n}</b><span class="dose">${e.dose}</span>${cue?`<small>${e.c}</small>`:''}</div>`;
 function summary(t){const w=W[t],lv=S.levels[t],c=config(t);
   return (w.circuit?`${c.rounds} ${c.rounds>1?'voltas':'volta'} · ${w.work[lv]}s de esforço / ${w.rest[lv]}s de pausa`:`${c.ex.length} exercícios · descanso de ${REST[lv]}s`)
-    +` · aquecimento ${c.warm?'completo':'curto'}`+(c.cool?' · alongamento no fim':'');}
+    +` · aquecimento ${c.warm?'completo':'curto'} · 2 min de mobilidade`+(c.cool?' · alongamento no fim':'');}
+const prepRows=t=>`<details class="more"><summary>Antes: 2 min de mobilidade</summary><div>${MOB[t].map(e=>exRow({...e,dose:e.t+'s'},true)).join('')}</div></details>
+  <details class="more"><summary>Depois: alongamento</summary><div>${COOLS[t].map(e=>exRow({...e,dose:e.t+'s'},true)).join('')}</div></details>`;
 function vHoje(){
   const t=nextType(),w=W[t],lv=S.levels[t],done=thisWeek().length,sug=suggestion(),G=weeklyGoal(),ad=adaptInfo();
   let h=`<div class="stack">`;
@@ -429,6 +472,7 @@ function vPlano(){
     h+=`<section class="card"><div><span class="label">Treino ${t} · ${w.kind} · ≈ ${estMin(t)} min</span><h2>${w.title}</h2></div>
       <div class="seg" role="group" aria-label="Nível do treino ${t}">${LV.map((n,i)=>`<button aria-pressed="${i===lv}" data-lv="${t}:${i}">${n}</button>`).join('')}</div>
       <div>${listItems(t).map(e=>exRow(e,true)).join('')}</div>
+      ${prepRows(t)}
       <p class="muted" style="font-size:14px">${summary(t)}</p>
       <button class="ghost" data-start="${t}">Fazer este treino agora</button></section>`;
   }
@@ -606,7 +650,7 @@ function renderS(){
     return;
   }
   const s=X.steps[X.i],pct=X.i/X.steps.length*100;
-  const cls=s.k==='rest'?'rest':s.ph==='Aquecimento'||s.ph==='Alongamento'?'prep':'work';
+  const cls=s.k==='rest'?'rest':['Aquecimento','Mobilidade','Alongamento'].includes(s.ph)?'prep':'work';
   let main,ctrl;
   if(s.k==='reps'){const side=s.r.match(/por \w+/);
     main=`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
