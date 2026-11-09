@@ -1,6 +1,6 @@
 // Treino na Sala: funciona offline. A página é buscada na rede primeiro,
 // então cada versão nova publicada chega sozinha quando houver internet.
-const CACHE = 'treino-na-sala-v6';
+const CACHE = 'treino-na-sala-v7';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

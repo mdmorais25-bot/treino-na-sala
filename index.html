@@ -90,6 +90,8 @@ input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:
 .opts{display:flex;flex-wrap:wrap;gap:6px}
 .opts label{border:1px solid var(--line);border-radius:99px;padding:7px 13px;font-size:14px;cursor:pointer;background:var(--bg)}
 .opts input{position:absolute;opacity:0;pointer-events:none}
+.pill{border:1px solid var(--line);border-radius:99px;padding:7px 13px;font-size:14px;font-weight:500;background:var(--bg);color:var(--ink)}
+.pill[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .opts label:has(input:checked){background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .opts label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
@@ -127,6 +129,7 @@ details.more[open] summary{color:var(--ink);margin-bottom:4px}
 .next{font-size:14px;opacity:.9}
 .s-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .s-ctrl .wide{grid-column:1/-1;font-size:18px;padding:16px}
+.s-ctrl.three{grid-template-columns:repeat(3,1fr)}
 .vbtn{background:transparent;border:1px solid var(--line);color:var(--muted);padding:5px 10px;font-size:12px;border-radius:99px;font-weight:600;white-space:nowrap}
 .vbtn[aria-pressed="true"]{color:var(--ink);border-color:var(--ink)}
 .s-ctrl button:disabled{opacity:.4;cursor:default}
@@ -274,6 +277,9 @@ const still=matchMedia('(prefers-reduced-motion: reduce)');
 function animate(ts){
   document.querySelectorAll('svg[data-fig]').forEach(s=>{
     const per=FIG[s.dataset.fig].fast?900:2600;
+    /* durante a contagem guiada, o boneco faz uma repetição por número falado */
+    const r=typeof X!=='undefined'&&X&&X.rep,sync=r&&r.stage==='count'&&!X.paused&&s.closest('.stage');
+    if(sync&&!still.matches){const cad=cadOf(X.steps[X.i]),ph=((r.t-r.t0+(Date.now()-r.last)/1000)%cad)/cad;setFig(s,(1-Math.cos(ph*2*Math.PI))/2);return;}
     setFig(s,still.matches?1:(1-Math.cos(ts/per*2*Math.PI))/2);
   });
   requestAnimationFrame(animate);
@@ -502,9 +508,9 @@ function makeSteps(type,o){
   const lv=S.levels[type],w=W[type],st=[];
   const pre=[...(o.warm?WARM:WARM_S).map(e=>({...e,ph:'Aquecimento'})),...MOB[type].map(e=>({...e,ph:'Mobilidade'}))];
   pre.forEach((e,i)=>st.push({k:'time',ph:e.ph,n:e.n,c:e.c,f:e.f,t:e.t,next:i<pre.length-1?pre[i+1].n:null}));
+  st.push({k:'rest',ph:'Aquecimento concluído',tr:1,t:20,next:(w.circuit?w.items[lv][0]:o.ex[0]).n});
   if(w.circuit){
     const ex=w.items[lv],R=o.rounds;
-    st.push({k:'rest',ph:'Prepare-se',t:15,next:ex[0].n});
     for(let r=0;r<R;r++)ex.forEach((e,i)=>{
       st.push({k:'time',ph:'Volta '+(r+1)+' de '+R,n:e.n,c:e.c,f:e.f,t:w.work[lv]});
       const last=i===ex.length-1;
@@ -520,12 +526,22 @@ function makeSteps(type,o){
   if(o.cool)COOLS[type].forEach(e=>st.push({k:'time',ph:e.ph||'Alongamento',n:e.n,c:e.c,f:e.f,t:e.t}));
   return st;
 }
-const restOf=(w,lv)=>w.restS?w.restS[lv]:REST[lv];
-const stepSec=s=>s.t||(/por /.test(s.r)?60:40);
+const restOf=(w,lv)=>{const p=S.restPref;if(p&&p!=='auto')return GEST()?Math.max(+p,60):+p;return w.restS?w.restS[lv]:REST[lv];};
+const RESTOPTS=()=>GEST()?[60,75,90,120]:[30,45,60,80,90,120];
+const fmtRest=t=>t<60?t+' s':t%60?Math.floor(t/60)+' min '+t%60:Math.floor(t/60)+' min';
+/* segundos por repetição, conforme o exercício; o ritmo escolhido multiplica */
+const CAD={squatC:3.5,bulg:3.5,lunge:3.5,bridge:3,bridge1:3.5,calf:3,calfW:3,push:3,inc:3,dec:3,wall:3,row:3,dip:3,dipL:3,lat:3,pike:3.5,pikeC:3.5,bird:4,sup:3,abd:3,hipE:3};
+const PACE={lento:1.25,normal:1,rapido:.8};
+const PACEN={lento:'Lento',normal:'Normal',rapido:'Rápido'};
+const countOn=()=>S.count!==false;
+function repInfo(r){const nums=(r.match(/\d+/g)||['10']).map(Number),m=r.match(/por (\w+)/);return {n:Math.max(...nums),sides:m?2:1,word:m?m[1]:''};}
+const cadOf=s=>(CAD[s.f]||3)*(PACE[S.pace]||1)*(GEST()?1.15:1);
+const LEAD=4.5,SWAP=4;
+const stepSec=s=>{if(s.t)return s.t;if(!countOn())return /por /.test(s.r)?60:40;const ri=repInfo(s.r);return LEAD+ri.n*cadOf(s)*ri.sides+(ri.sides>1?SWAP:0)+2;};
 const estSec=st=>st.reduce((a,s)=>a+stepSec(s),0);
 const cache={};
 function config(type){
-  const lv=S.levels[type],key=(GEST()?'g':'n')+type+lv+S.dur;if(cache[key])return cache[key];
+  const lv=S.levels[type],key=[GEST()?'g':'n',type,lv,S.dur,S.restPref,S.pace,countOn()].join('|');if(cache[key])return cache[key];
   const w=W[type],goal=S.dur*60,cands=[];
   for(const warm of [true,false])for(const cool of [true]){
     const pen=(warm?0:60)+(cool?0:90);
@@ -585,17 +601,31 @@ function vHoje(){
   if(sug)h+=`<section class="card"><h3>O treino ${sug} ficou fácil</h3><p class="muted">Você marcou "Fácil" nas últimas 3 sessões. Hora de subir para ${LV[S.levels[sug]+1]}.</p>
     <div class="row"><button class="btn" data-up="${sug}">Subir de nível</button><button class="ghost" data-dismiss="${sug}">Agora não</button></div></section>`;
   h+=`<section class="card"><span class="label">O que tem no treino ${t}</span><div>${listItems(t).map(e=>exRow(e,false)).join('')}</div>
-    <p class="muted" style="font-size:14px">${summary(t)}</p></section>`;
+    <p class="muted" style="font-size:14px">${summary(t)}</p>
+    <p class="muted" style="font-size:14px">Descanso: ${S.restPref&&S.restPref!=='auto'?fmtRest(restOf(w,lv)):'automático'} · Contagem pela voz: ${countOn()?'ligada':'desligada'}</p>
+    <button class="ghost" data-go="plano">Ajustar descanso e contagem</button></section>`;
   h+=`<section class="card"><div class="row" style="justify-content:space-between"><h3>Meta da semana</h3><span class="num" style="font-size:22px;font-weight:700">${Math.min(done,G)}/${G}</span></div>
     <div class="week" style="grid-template-columns:repeat(${G},1fr)">${Array.from({length:G},(_,i)=>`<span class="${i<done?'on':''}"></span>`).join('')}</div>
     <p class="muted" style="font-size:14px">${G} treinos por semana, na ordem ${rotation().join(', ')}.${ad?' Na fase de adaptação, não passe disso mesmo com vontade.':''} ${g?'Nos outros dias, caminhadas leves de 20 a 30 minutos, se o médico concordar.':'Nos outros dias, caminhe 30 minutos.'}</p></section>`;
   if(g)h+=dangerCard(false);
   return h+`</div>`;
 }
+function settingsCard(){
+  const auto=W.A.restS?W.A.restS[S.levels.A]:REST[S.levels.A],cur=S.restPref||'auto';
+  const opts=[['auto','Automático'],...RESTOPTS().map(t=>[String(t),fmtRest(t)])];
+  return `<section class="card" id="ajustes"><span class="label">Ajustes do treino</span>
+    <div class="field"><span>Descanso entre as séries</span><small>No automático, o app usa ${fmtRest(auto)} no seu nível atual. Dá para mudar também durante o descanso, com −15 s e +15 s.</small>
+      <div class="opts">${opts.map(([k,v])=>`<button type="button" class="pill" aria-pressed="${String(cur)===k}" data-rest="${k}">${v}</button>`).join('')}</div></div>
+    <div class="field"><span>Contagem das repetições pela voz</span><small>A voz conta cada repetição no ritmo do exercício e passa sozinha para o descanso.</small>
+      <div class="opts"><button type="button" class="pill" aria-pressed="${countOn()}" data-count="1">Ligada</button><button type="button" class="pill" aria-pressed="${!countOn()}" data-count="0">Desligada</button></div></div>
+    ${countOn()?`<div class="field"><span>Ritmo da contagem</span>
+      <div class="opts">${Object.entries(PACEN).map(([k,v])=>`<button type="button" class="pill" aria-pressed="${(S.pace||'normal')===k}" data-pace="${k}">${v}</button>`).join('')}</div></div>`:''}
+    ${GEST()?'<p class="muted" style="font-size:13px">No modo gestante, o descanso mínimo é de 1 minuto.</p>':''}</section>`;
+}
 function vPlano(){
   const g=GEST();if(g&&gBlocked(S.profile))return vHoje();
   let h=`<div class="stack"><section class="card"><span class="label">Tempo por treino</span>${durSeg()}
-    <p class="muted" style="font-size:14px">Com menos tempo, o app tira os exercícios menos importantes, reduz séries ou voltas e encurta o aquecimento. Com mais tempo, acrescenta séries.${g?' Mobilidade, alongamento e respiração nunca são cortados.':''}</p></section>`;
+    <p class="muted" style="font-size:14px">Com menos tempo, o app tira os exercícios menos importantes, reduz séries ou voltas e encurta o aquecimento. Com mais tempo, acrescenta séries.${g?' Mobilidade, alongamento e respiração nunca são cortados.':''}</p></section>`+settingsCard();
   for(const t of ['A','B','C']){
     const w=W[t],lv=S.levels[t];
     h+=`<section class="card"><div><span class="label">Treino ${t} · ${w.kind} · ≈ ${estMin(t)} min</span><h2>${w.title}</h2></div>
@@ -762,6 +792,9 @@ document.addEventListener('click',e=>{
   else if(b.dataset.skip){S.skipped=true;save();route();}
   else if(b.dataset.edit){EDIT=true;route();window.scrollTo(0,0);}
   else if(b.dataset.cancel){EDIT=false;PMODE=null;route();}
+  else if(b.dataset.rest){S.restPref=b.dataset.rest==='auto'?'auto':+b.dataset.rest;save();route();}
+  else if(b.dataset.count){S.count=b.dataset.count==='1';save();route();}
+  else if(b.dataset.pace){S.pace=b.dataset.pace;save();route();}
   else if(b.dataset.pmode){PMODE=b.dataset.pmode;route();}
   else if(b.dataset.okdisc){S.lastDiscomfort=null;save();route();}
   else if(b.dataset.del){if(DELC){if(GEST()&&S.levelsN)S.levels=S.levelsN;S.profile=null;S.skipped=false;DELC=false;save();location.hash='hoje';route();}else{DELC=true;route();}}
@@ -795,18 +828,47 @@ function say(t,keep){
   try{if(!keep)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';if(ptVoice)u.voice=ptVoice;u.rate=1.05;speechSynthesis.speak(u);}catch(e){}
 }
 const NUM={3:'três',2:'dois',1:'um'};
-function announce(s){
-  if(s.k==='reps')say(`${s.n}. ${s.r.replace('a 10','a dez')} repetições.`);
-  else if(s.k==='time')say(`${s.n}. ${s.t} segundos.`);
-  else if(s.ph==='Prepare-se')say(`Prepare-se. Começando com ${s.next}.`);
-  else say(`Descanse. A seguir, ${s.next||'próximo exercício'}.`);
+const phaseOf=s=>/^(Série|Volta)/.test(s.ph)?'main':s.ph;
+const INTRO={Aquecimento:'Primeiro, o aquecimento. Exercícios leves para esquentar o corpo.',
+  Mobilidade:'Agora, mobilidade. Movimentos leves para preparar as articulações para o treino.',
+  main:'Começou o treino!',Alongamento:'Treino concluído! Agora vamos alongar. Segure cada posição, sem balançar.',
+  Respiração:'Para terminar, respiração e assoalho pélvico.'};
+function introFor(i){
+  const s=X.steps[i],prev=X.steps.slice(0,i).reverse().find(z=>z.k!=='rest');
+  return (!prev||phaseOf(prev)!==phaseOf(s))&&INTRO[phaseOf(s)]?INTRO[phaseOf(s)]+' ':'';
 }
+function announce(s){
+  const intro=s.k==='rest'?'':introFor(X.i);
+  if(s.k==='reps'){const ri=repInfo(s.r);
+    say(`${intro}${s.n}. ${ri.n} repetições${ri.sides>1?' por '+ri.word:''}.${countOn()?' Prepare-se... vamos lá!':''}`);}
+  else if(s.k==='time')say(`${intro}${s.n}. ${s.t} segundos.`);
+  else if(s.ph==='Prepare-se')say('Prepare-se. O treino começa com o aquecimento.');
+  else if(s.tr)say(`Aquecimento concluído! Respire fundo e beba um gole de água. Em ${s.t} segundos começa o treino, com ${s.next}.`);
+  else{const m=(s.next||'').match(/^(.*) · série (\d+)$/);
+    say(m?`Descanse. Depois, série ${m[2]} de ${m[1]}.`:s.ph==='Fim da volta'?`Fim da volta. Descanse. A seguir, ${s.next}.`:`Descanse. Próximo exercício: ${s.next||'o próximo'}.`);}
+}
+/* contagem guiada: fala cada repetição no ritmo do exercício */
+function repTick(s){
+  const r=X.rep,now=Date.now();r.t+=Math.min(now-r.last,500)/1000;r.last=now;
+  const ri=repInfo(s.r),cad=cadOf(s);
+  if(r.stage==='lead'&&r.t>=LEAD){r.stage='count';r.t0=r.t;}
+  if(r.stage==='count'){
+    const k=Math.min(ri.n,Math.floor((r.t-r.t0)/cad));
+    if(k>r.i){r.i=k;if(S.voice===false)beep(990,.08);else say(k===ri.n&&r.side===ri.sides?k+'. Última!':String(k));repShow(ri);}
+    if(r.i>=ri.n&&r.t-r.t0>=ri.n*cad+1.6){
+      if(r.side<ri.sides){r.side++;r.i=0;r.stage='swap';r.t0=r.t;say(`Troque de ${ri.word==='perna'?'perna':ri.word==='braço'?'braço':'lado'}.`,true);repShow(ri);}
+      else{r.stage='done';r.t0=r.t;say('Série concluída! Muito bem.',true);}
+    }
+  }else if(r.stage==='swap'&&r.t-r.t0>=SWAP){r.stage='count';r.t0=r.t;}
+  else if(r.stage==='done'&&r.t-r.t0>=2.4){r.stage='end';advance();}
+}
+function repShow(ri){const b=$('#repn'),u=$('#repside');if(b)b.textContent=X.rep.i;if(u&&ri.sides>1)u.textContent=`${ri.word} ${X.rep.side} de 2`;}
 function beep(f,d){try{if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
 async function startSession(type){
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
   keepAwake();
   const cfg=config(type),steps=makeSteps(type,cfg),lv=S.levels[type],w=W[type];
-  steps.unshift({k:'rest',ph:'Prepare-se',t:5,next:steps[0].n});
+  steps.unshift({k:'rest',ph:'Prepare-se',t:6,next:steps[0].n});
   const demo=w.circuit?w.items[lv].map(e=>({...e,dose:`${w.work[lv]}s de esforço · ${cfg.rounds} ${cfg.rounds>1?'voltas':'volta'}`}))
     :cfg.ex.map(e=>({...e,dose:e.s+' séries de '+(e.h?e.h+' segundos':e.r+' repetições').replace(' repetições',/por /.test(e.r||'')?'':' repetições')}));
   X={type,steps,demo,di:0,mode:'demo',i:0,t0:Date.now(),end:0,left:0,paused:false,last:-1,confirm:false,done:false};
@@ -814,12 +876,12 @@ async function startSession(type){
   say(`Treino ${type}. Veja os exercícios antes de começar, ou pule a demonstração.`);
 }
 function beginWork(){X.mode='run';X.t0=Date.now();X.i=0;enter();}
-function enter(){const s=X.steps[X.i];X.paused=false;X.last=-1;X.said={};X.stepStart=Date.now();if(s.t){X.left=s.t;X.end=Date.now()+s.t*1000;}renderS();announce(s);}
+function enter(){const s=X.steps[X.i];X.paused=false;X.last=-1;X.said={};X.stepStart=Date.now();X.rep=s.k==='reps'?{t:0,last:Date.now(),i:0,side:1,stage:'lead'}:null;if(s.t){X.left=s.t;X.end=Date.now()+s.t*1000;}renderS();announce(s);}
 function advance(){X.i++;if(X.i>=X.steps.length){finish();return;}beep(1320,.25);enter();}
 function finish(){X.done=true;X.mins=Math.max(1,Math.round((Date.now()-X.t0)/60000));renderS();say('Treino concluído. Mandou bem!');}
 setInterval(()=>{
   if(!X||X.done||X.paused||X.confirm||X.mode==='demo')return;const s=X.steps[X.i];
-  if(s.k==='reps'){const el=$('#elapsed');if(el)el.textContent=fmt((Date.now()-X.stepStart)/1000);return;}
+  if(s.k==='reps'){if(countOn()&&X.rep)repTick(s);else{const el=$('#elapsed');if(el)el.textContent=fmt((Date.now()-X.stepStart)/1000);}return;}
   X.left=(X.end-Date.now())/1000;const sec=Math.ceil(X.left);
   if(s.k==='time'&&s.t>=40&&sec===Math.ceil(s.t/2)&&!X.said.half){X.said.half=1;say('Metade.');}
   if(s.k==='time'&&s.t>=30&&sec===10&&!X.said.ten){X.said.ten=1;say('Faltam dez segundos.');}
@@ -852,23 +914,26 @@ function renderS(){
   const s=X.steps[X.i],pct=X.i/X.steps.length*100;
   const cls=s.k==='rest'?'rest':['Aquecimento','Mobilidade','Alongamento','Respiração'].includes(s.ph)?'prep':'work';
   let main,ctrl;
-  if(s.k==='reps'){const side=s.r.match(/por \w+/);
-    main=`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
+  if(s.k==='reps'){const side=s.r.match(/por \w+/),ri=repInfo(s.r);
+    main=countOn()?`<div><div class="mainrow"><span class="big num" id="repn">${X.rep?X.rep.i:0}</span><span class="unit">de ${ri.n} repetições</span></div>
+      <p class="next" style="margin-top:6px">${ri.sides>1?`<b id="repside">${ri.word} ${X.rep?X.rep.side:1} de 2</b> · `:''}A voz conta no ritmo do exercício</p></div>`
+      :`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
       <p class="next" style="margin-top:6px">Tempo nesta série: <b class="num" id="elapsed" style="font-size:18px">0:00</b></p></div>`;
-    ctrl=`<button class="btn wide" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
+    ctrl=countOn()?`<button class="btn wide" data-s="pause">${X.paused?'Continuar':'Pausar'}</button><button class="ghost" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button>`
+      :`<button class="btn wide" data-s="ok">Concluí a série</button><button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
   else{const v=X.paused?X.left:s.t;main=`<div class="mainrow"><span class="big num" id="clock">${s.t>=60?fmt(v):Math.ceil(v)}</span><span class="unit">${s.t>=60?'':'segundos'}</span></div>`;
-    ctrl=s.k==='rest'?`<button class="btn wide" data-s="skip">Pular descanso</button><button class="ghost" data-s="plus">+15 s</button><button class="ghost" data-s="pause">${X.paused?'Continuar':'Pausar'}</button>`
+    ctrl=s.k==='rest'?`<button class="btn wide" data-s="skip">${s.tr?'Começar o treino agora':'Pular descanso'}</button><button class="ghost" data-s="minus">−15 s</button><button class="ghost" data-s="plus">+15 s</button><button class="ghost" data-s="pause">${X.paused?'Continuar':'Pausar'}</button>`
       :`<button class="btn wide" data-s="pause">${X.paused?'Continuar':'Pausar'}</button><button class="ghost" data-s="back">Voltar</button><button class="ghost" data-s="skip">Pular</button>`;}
   let title,illo,sub;
   if(s.k==='rest'){
     const nx=X.steps.slice(X.i+1).find(z=>z.k!=='rest');
-    title=s.ph==='Prepare-se'?'Prepare-se':'Respire';
+    title=s.ph==='Prepare-se'?'Prepare-se':s.tr?'Agora vem o treino':'Respire';
     illo=nx?fig(nx.f):'';
     sub=s.next?`<p class="next">A seguir: <b>${s.next}</b></p>`:'';
   }else{title=s.n;illo=fig(s.f);sub=`<p class="cue">${s.c}</p>`+(s.next?`<p class="next">A seguir: ${s.next}</p>`:'');}
   el.innerHTML=`<div class="s-in"><div class="s-top"><div class="bar"><i style="width:${pct}%"></i></div>${vbtn}<button class="x" data-s="close" aria-label="Encerrar treino">×</button></div>
     <div class="stage ${cls}"><div><span class="label">${s.ph}</span><h2>${title}</h2></div>${illo}${main}<div>${sub}</div></div>
-    <div class="s-ctrl">${ctrl}</div>
+    <div class="s-ctrl${s.k==='rest'?' three':''}">${ctrl}</div>
     ${X.confirm?confirmBox():''}</div>`;
 }
 const confirmBox=()=>`<div class="confirm"><div class="card"><h3>Encerrar o treino?</h3><p class="muted">Esta sessão não vai entrar no histórico.</p><div class="row"><button class="btn" data-s="resume">Continuar treinando</button><button class="ghost" data-s="quit">Encerrar</button></div></div></div>`;
@@ -891,10 +956,11 @@ $('#session').addEventListener('click',e=>{
   const s=X.steps[X.i];
   if(a==='ok'||a==='skip')advance();
   else if(a==='back'){if(X.i>0){X.i--;enter();}}
-  else if(a==='plus'){X.end+=15000;X.left+=15;}
-  else if(a==='pause'){if(X.paused){X.end=Date.now()+X.left*1000;X.paused=false;}else{X.left=(X.end-Date.now())/1000;X.paused=true;}renderS();}
+  else if(a==='plus'){X.end+=15000;X.left+=15;if(X.paused)renderS();}
+  else if(a==='minus'){const nl=Math.max(3,X.left-15);X.end-=(X.left-nl)*1000;X.left=nl;if(X.paused)renderS();}
+  else if(a==='pause'){if(X.rep)X.rep.last=Date.now();if(X.paused){X.end=Date.now()+X.left*1000;X.paused=false;}else{X.left=(X.end-Date.now())/1000;X.paused=true;}renderS();}
   else if(a==='close'){if(s.t&&!X.paused)X.left=(X.end-Date.now())/1000;X.confirm=true;renderS();}
-  else if(a==='resume'){X.confirm=false;if(s.t)X.end=Date.now()+X.left*1000;renderS();}
+  else if(a==='resume'){X.confirm=false;if(X.rep)X.rep.last=Date.now();if(s.t)X.end=Date.now()+X.left*1000;renderS();}
   else if(a==='quit')closeS();
 });
 route();

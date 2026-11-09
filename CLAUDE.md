@@ -19,7 +19,10 @@ App de treino em casa sem equipamento (força, condicionamento e perda de gordur
 - Cada sessão: aquecimento geral, 2 min de mobilidade específica do treino (`MOB`), o treino, alongamento específico no final (`COOLS`). Mobilidade e alongamento nunca são cortados.
 - Tempo disponível (15/20/30/45 min): `config()` escolhe exercícios, séries ou voltas para caber no tempo.
 - Perfil opcional (peso, altura, objetivo, atividade, teste de flexões e agachamentos, dias, saúde): `recommend()` define níveis, frequência e fase de adaptação para sedentários.
-- Sessão guiada: demonstração dos exercícios (pode pular), contagem "3, 2, 1", voz em pt-BR (pode desligar), cronômetro nas séries por repetição.
+- Sessão guiada: demonstração dos exercícios (pode pular), contagem "3, 2, 1", voz em pt-BR (pode desligar).
+  - Narração por fases (`INTRO`, `announce`): aquecimento, mobilidade, transição de 20 s "Aquecimento concluído" (passo com `tr:1`), começo do treino, alongamento, respiração.
+  - Contagem guiada das repetições (`repTick`): a voz fala cada número no ritmo do exercício (`CAD` em segundos por repetição, vezes `PACE`), troca de lado nos exercícios "por perna/braço/lado" e passa sozinha para o descanso. O boneco se move no mesmo ritmo. Pode desligar (`S.count`).
+  - Descanso ajustável (`S.restPref`: 'auto' ou segundos; gestante no mínimo 60 s), mais botões −15 s e +15 s no descanso. Ajustes ficam no cartão "Ajustes do treino" da aba Plano.
 - Ilustrações: bonecos de traço animados entre duas poses (`PO` e `FIG`). No modo gestante o boneco ganha barriga (`.bel`; `front:1` marca poses de frente).
 - Modo gestante (`S.profile.mode==='gest'`): dados em `WG`, `WARMG`, `MOBG`, `COOLSG` (alongamento + respiração e assoalho pélvico), `LVG`. O nível é o trimestre, calculado pela semana informada mais o tempo passado (`gWeek`, `triOf`). `applyMode()` troca as variáveis `W`, `MOB`, `COOLS` etc. a cada `route()`.
   - Sem liberação do obstetra ou com alguma condição de `CONDS`, os treinos ficam pausados (`gBlocked`).
