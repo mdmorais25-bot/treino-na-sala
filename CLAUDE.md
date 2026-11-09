@@ -20,7 +20,12 @@ App de treino em casa sem equipamento (força, condicionamento e perda de gordur
 - Tempo disponível (15/20/30/45 min): `config()` escolhe exercícios, séries ou voltas para caber no tempo.
 - Perfil opcional (peso, altura, objetivo, atividade, teste de flexões e agachamentos, dias, saúde): `recommend()` define níveis, frequência e fase de adaptação para sedentários.
 - Sessão guiada: demonstração dos exercícios (pode pular), contagem "3, 2, 1", voz em pt-BR (pode desligar), cronômetro nas séries por repetição.
-- Ilustrações: bonecos de traço animados entre duas poses (`PO` e `FIG`).
+- Ilustrações: bonecos de traço animados entre duas poses (`PO` e `FIG`). No modo gestante o boneco ganha barriga (`.bel`; `front:1` marca poses de frente).
+- Modo gestante (`S.profile.mode==='gest'`): dados em `WG`, `WARMG`, `MOBG`, `COOLSG` (alongamento + respiração e assoalho pélvico), `LVG`. O nível é o trimestre, calculado pela semana informada mais o tempo passado (`gWeek`, `triOf`). `applyMode()` troca as variáveis `W`, `MOB`, `COOLS` etc. a cada `route()`.
+  - Sem liberação do obstetra ou com alguma condição de `CONDS`, os treinos ficam pausados (`gBlocked`).
+  - A partir do 2º trimestre não há exercício deitada de costas. Sem saltos, sem prender a respiração, sempre com apoio.
+  - Sem sugestão de subir de nível e sem registro de peso. O fim do treino tem a opção "Senti desconforto", que mostra os sinais de alerta (`DANGER`).
+  - Baseado nas recomendações do ACOG para exercício na gravidez. Qualquer mudança aqui deve manter esses cuidados.
 - Dados ficam no `localStorage` do aparelho (chave `treino-sala`). Não há servidor.
 
 ## Para publicar uma versão nova

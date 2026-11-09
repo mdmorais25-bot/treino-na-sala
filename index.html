@@ -215,7 +215,19 @@ const PO={
  catB:[82,74,78,64,46,64,46,88,28,88,46,88,28,88,78,76,78,88,77,76,77,88],
  calfS:[78,28,72,36,60,58,72,74,74,90,48,74,36,90,82,36,90,36,81,37,89,37],
  cross:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,52,30,40,30,56,40,48,32],
- tri:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,66,6,58,18,52,12,64,7]
+ tri:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,66,6,58,18,52,12,64,7],
+ wallA:[80,20,76,29,58,56,52,73,46,90,51,73,45,90,86,31,96,32,85,31,95,32],
+ wallB:[88,21,84,30,62,57,54,73,46,90,53,73,45,90,90,40,96,32,89,40,95,32],
+ abdA:[60,15,60,25,60,54,64,72,65,90,56,72,55,90,72,32,86,34,55,38,53,52],
+ abdB:[60,15,60,25,60,54,64,72,65,90,50,71,38,85,72,32,86,34,55,38,53,52],
+ hipEA:[60,15,60,25,60,54,61,72,61,90,58,72,58,90,72,32,86,34,70,33,84,35],
+ hipEB:[62,15,61,25,60,54,61,72,61,90,54,71,44,86,72,32,86,34,70,33,84,35],
+ calfWB:[60,10,60,20,60,49,61,67,62,88,58,67,59,88,72,27,86,29,70,28,84,30],
+ stepB:[64,15,64,25,64,54,70,72,76,90,60,72,62,90,70,38,74,50,58,38,56,50],
+ hipcA:[60,15,60,25,56,54,62,72,65,90,54,72,55,90,68,40,60,52,52,40,58,52],
+ hipcB:[60,15,60,25,64,54,66,72,65,90,58,72,55,90,68,40,64,52,52,40,62,52],
+ sitA:[34,26,34,36,36,64,58,64,58,90,56,65,56,90,40,50,50,60,39,51,49,61],
+ sitB:[34,25,34,35,36,64,58,64,58,90,56,65,56,90,42,48,50,57,41,49,49,58]
 };
 const chair=(x1,x2,y)=>`M${x1} ${y}H${x2}M${x1+2} ${y}V90M${x2-2} ${y}V90M${x1} ${y}V${y-20}`;
 const FIG={
@@ -232,13 +244,19 @@ const FIG={
  burpee:{a:'burA',b:'burB'}, jump:{a:'squat',b:'air'}, circ:{a:'circA',b:'circB'},
  ham:{a:'stand',b:'hamB'}, quad:{a:'quad',b:'quad'}, chest:{a:'chest',b:'chest',p:'M34 4V90'},
  swing:{a:'swingA',b:'swingB'}, hug:{a:'circA',b:'hugB'}, cat:{a:'catA',b:'catB'},
- calfS:{a:'calfS',b:'calfS',p:'M92 6V90'}, cross:{a:'cross',b:'cross'}, tri:{a:'tri',b:'tri'}
+ calfS:{a:'calfS',b:'calfS',p:'M92 6V90'}, cross:{a:'cross',b:'cross'}, tri:{a:'tri',b:'tri'},
+ wall:{a:'wallA',b:'wallB',p:'M98 4V90'}, abd:{a:'abdA',b:'abdB',p:'M90 4V90',front:1},
+ hipE:{a:'hipEA',b:'hipEB',p:'M90 4V90'}, calfW:{a:'hipEA',b:'calfWB',p:'M90 4V90'},
+ step:{a:'frontA',b:'stepB',front:1}, hipc:{a:'hipcA',b:'hipcB',front:1},
+ sitB:{a:'sitA',b:'sitB',p:chair(24,46,66)}
 };
+['jack','lat','circ','hug'].forEach(k=>FIG[k].front=1);
+const GEST=()=>S.profile?.mode==='gest';
 function fig(k){const f=FIG[k];if(!f)return '';
   return `<svg class="fig" viewBox="0 0 120 96" data-fig="${k}" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round">
   <path class="flr" d="M4 90H116" stroke-width="2"/>${f.p?`<path class="prop" d="${f.p}" stroke-width="3"/>`:''}
   <path class="far" stroke="currentColor" stroke-width="5"/><path class="near" stroke="currentColor" stroke-width="5"/>
-  <circle class="hd" r="6.5" fill="currentColor"/>${f.bag?'<rect class="bag" width="12" height="13" rx="3" fill="currentColor" opacity=".7"/>':''}
+  ${GEST()?'<circle class="bel" r="7" fill="currentColor"/>':''}<circle class="hd" r="6.5" fill="currentColor"/>${f.bag?'<rect class="bag" width="12" height="13" rx="3" fill="currentColor" opacity=".7"/>':''}
   ${f.bottle?'<rect class="bt1" width="5" height="10" rx="2" fill="currentColor" opacity=".7"/><rect class="bt2" width="5" height="10" rx="2" fill="currentColor" opacity=".7"/>':''}</svg>`;}
 function setFig(svg,t){
   const f=FIG[svg.dataset.fig],A=PO[f.a],B=PO[f.b],p=A.map((v,i)=>v+(B[i]-v)*t);
@@ -246,6 +264,9 @@ function setFig(svg,t){
   svg.querySelector('.near').setAttribute('d',`M${P(1)}L${P(2)}M${P(2)}L${P(3)}L${P(4)}M${P(1)}L${P(7)}L${P(8)}`);
   svg.querySelector('.far').setAttribute('d',`M${P(2)}L${P(5)}L${P(6)}M${P(1)}L${P(9)}L${P(10)}`);
   const h=svg.querySelector('.hd');h.setAttribute('cx',p[0]);h.setAttribute('cy',p[1]);
+  const bel=svg.querySelector('.bel');
+  if(bel){const dx=p[4]-p[2],dy=p[5]-p[3],L=Math.hypot(dx,dy)||1,o=f.front?0:5;
+    bel.setAttribute('cx',(p[2]+dx*.6+dy/L*o).toFixed(1));bel.setAttribute('cy',(p[3]+dy*.6-dx/L*o).toFixed(1));}
   const bag=svg.querySelector('.bag');if(bag){bag.setAttribute('x',p[16]-6);bag.setAttribute('y',p[17]);}
   const b1=svg.querySelector('.bt1');if(b1){b1.setAttribute('x',p[16]-2.5);b1.setAttribute('y',p[17]-5);const b2=svg.querySelector('.bt2');b2.setAttribute('x',p[20]-2.5);b2.setAttribute('y',p[21]-5);}
 }
@@ -259,10 +280,10 @@ function animate(ts){
 }
 
 /* ---------- treinos ---------- */
-const LV=['Iniciante','Intermediário','Avançado'];
-const REST=[75,60,60];
-const DUR=[15,20,30,45];
-const W={
+const LVN=['Iniciante','Intermediário','Avançado'];
+const RESTN=[75,60,60];
+const DURN=[15,20,30,45];
+const WN={
  A:{title:'Pernas e core',kind:'Força',keep:[0,2,4,1,3],items:[
   [{n:'Agachamento na cadeira',s:3,r:'10',f:'squatC',c:'Sente e levante sem usar as mãos. Peito aberto, peso nos calcanhares.'},
    {n:'Agachamento livre',s:3,r:'15',f:'squat',c:'Desça até as coxas ficarem paralelas ao chão. Joelhos apontam para os pés.'},
@@ -305,10 +326,10 @@ const W={
    [{n:'Polichinelo com agachamento',f:'jack',c:'Polichinelo e, ao abrir as pernas, agache.'},{n:'Agachamento com salto',f:'jump',c:'Aterrisse macio e já desça para o próximo.'},{n:'Escalador',f:'clim',c:'Máxima velocidade mantendo o quadril estável.'},{n:'Joelho alto',f:'run',c:'Sprint parado. Braços fortes.'},{n:'Burpee com flexão',f:'burpee',c:'Flexão completa embaixo, salto com braços para cima.'}]
   ]}
 };
-const WARM=[{n:'Marcha no lugar',t:40,f:'run',c:'Joelhos sobem e braços acompanham. Esquente o corpo.'},{n:'Polichinelo leve',t:40,f:'jack',c:'Aumente o ritmo aos poucos.'}];
-const WARM_S=WARM.map(e=>({...e,t:30}));
+const WARMN=[{n:'Marcha no lugar',t:40,f:'run',c:'Joelhos sobem e braços acompanham. Esquente o corpo.'},{n:'Polichinelo leve',t:40,f:'jack',c:'Aumente o ritmo aos poucos.'}];
+const WARM_SN=WARMN.map(e=>({...e,t:30}));
 /* mobilidade dinâmica de 2 min, específica de cada treino */
-const MOB={
+const MOBN={
  A:[{n:'Balanço de perna',t:30,f:'swing',c:'Mão na parede, balance a perna para frente e para trás. 15s cada perna.'},
     {n:'Agachamento com pausa',t:30,f:'squat',c:'Desça devagar e fique 2s embaixo, empurrando os joelhos para fora.'},
     {n:'Afundo lento',t:30,f:'lunge',c:'Passo à frente, desça devagar e volte. Alterne as pernas.'},
@@ -323,7 +344,7 @@ const MOB={
     {n:'Escalador lento',t:30,f:'clim',c:'Leve um joelho de cada vez ao peito, sem pressa.'}]
 };
 /* alongamento parado no final, para os músculos que trabalharam */
-const COOLS={
+const COOLSN={
  A:[{n:'Alongamento de posterior',t:30,f:'ham',c:'Em pé, incline o tronco com os joelhos levemente dobrados. Sem balançar.'},
     {n:'Alongamento de quadríceps',t:30,f:'quad',c:'Segure o pé atrás, joelhos juntos. 15s cada perna.'},
     {n:'Panturrilha na parede',t:30,f:'calfS',c:'Mãos na parede, perna de trás esticada e calcanhar no chão. 15s cada lado.'}],
@@ -334,8 +355,93 @@ const COOLS={
     {n:'Alongamento de quadríceps',t:30,f:'quad',c:'Segure o pé atrás. 15s cada perna.'},
     {n:'Alongamento de peito',t:30,f:'chest',c:'Mão no batente da porta, gire o corpo para o outro lado.'}]
 };
+/* ---------- modo gestante: nível = trimestre (0 = 1º, 1 = 2º, 2 = 3º) ---------- */
+const LVG=['1º trimestre','2º trimestre','3º trimestre'];
+const WG={
+ A:{title:'Pernas e quadril',kind:'Força leve',keep:[0,1,2,4,3],maxS:3,restS:[75,75,90],items:[
+  [{n:'Sentar e levantar da cadeira',s:3,r:'10',f:'squatC',c:'Pés na largura do quadril. Sente devagar e levante empurrando o chão. Solte o ar ao subir.'},
+   {n:'Sentar e levantar da cadeira',s:3,r:'10',f:'squatC',c:'Pés um pouco mais afastados para dar espaço à barriga. Solte o ar ao subir.'},
+   {n:'Sentar e levantar da cadeira',s:2,r:'8',f:'squatC',c:'Cadeira firme encostada na parede. Pode usar as mãos nas coxas para levantar.'}],
+  [{n:'Abertura lateral de perna',s:2,r:'10 por perna',f:'abd',c:'Mão apoiada na parede. Leve a perna para o lado sem inclinar o tronco.'},
+   {n:'Abertura lateral de perna',s:3,r:'10 por perna',f:'abd',c:'Movimento lento e controlado, sempre com apoio na parede.'},
+   {n:'Abertura lateral de perna',s:2,r:'8 por perna',f:'abd',c:'Abertura pequena, só até onde ficar confortável. Apoio firme na parede.'}],
+  [{n:'Ponte de glúteo',s:3,r:'10',f:'bridge',c:'Deitada de costas, joelhos dobrados. Suba o quadril devagar. Só no 1º trimestre.'},
+   {n:'Extensão de quadril em pé',s:3,r:'10 por perna',f:'hipE',c:'Mãos na parede. Leve a perna esticada para trás, sem arquear as costas.'},
+   {n:'Extensão de quadril em pé',s:2,r:'8 por perna',f:'hipE',c:'Movimento curto, mãos firmes na parede e tronco reto.'}],
+  [{n:'Elevação de panturrilha',s:2,r:'12',f:'calfW',c:'Mãos na parede. Suba na ponta dos pés devagar e desça em 2 segundos.'},
+   {n:'Elevação de panturrilha',s:2,r:'15',f:'calfW',c:'Ajuda na circulação das pernas. Mãos na parede.'},
+   {n:'Elevação de panturrilha',s:2,r:'12',f:'calfW',c:'Ajuda a diminuir o inchaço nas pernas. Sempre com apoio.'}],
+  [{n:'Marcha no lugar',s:2,h:45,f:'run',c:'Ritmo confortável. Você deve conseguir conversar.'},
+   {n:'Marcha no lugar',s:2,h:45,f:'run',c:'Joelhos numa altura confortável. Dá para conversar durante o exercício.'},
+   {n:'Marcha leve',s:2,h:30,f:'run',c:'Passos curtos e tranquilos.'}]
+ ]},
+ B:{title:'Postura e braços',kind:'Força leve',keep:[0,1,3,2,4],maxS:3,restS:[75,75,90],items:[
+  [{n:'Flexão na parede',s:3,r:'10',f:'wall',c:'Mãos na parede na altura do peito. Dobre os cotovelos e volte. Corpo reto e sem prender o ar.'},
+   {n:'Flexão na parede',s:3,r:'10',f:'wall',c:'Pés um pouco mais perto da parede para ficar confortável.'},
+   {n:'Flexão na parede',s:2,r:'10',f:'wall',c:'Pés perto da parede, movimento curto e lento.'}],
+  [{n:'Remada com garrafa',s:3,r:'10 por braço',f:'row',c:'Mão e joelho apoiados na cadeira. Puxe a garrafa até a cintura, cotovelo junto ao corpo.'},
+   {n:'Remada com garrafa',s:3,r:'10 por braço',f:'row',c:'Apoio firme na cadeira, costas retas. Solte o ar ao puxar.'},
+   {n:'Remada com garrafa',s:2,r:'8 por braço',f:'row',c:'Garrafa mais leve. Fortalece as costas e ajuda na postura.'}],
+  [{n:'Elevação lateral com garrafas',s:2,r:'10',f:'lat',c:'Garrafas pequenas. Suba os braços até a altura dos ombros.'},
+   {n:'Elevação lateral com garrafas',s:2,r:'10',f:'lat',c:'Sem balançar o corpo. Pode fazer sentada.'},
+   {n:'Elevação lateral com garrafas',s:2,r:'8',f:'lat',c:'Pode fazer sentada na cadeira.'}],
+  [{n:'Perdigueiro',s:2,r:'6 por lado',f:'bird',c:'De quatro apoios, estenda braço e perna opostos devagar. Sem afundar as costas.'},
+   {n:'Perdigueiro',s:2,r:'6 por lado',f:'bird',c:'Se perder o equilíbrio, estenda só o braço ou só a perna.'},
+   {n:'Perdigueiro só com braços',s:2,r:'5 por lado',f:'bird',c:'Estenda um braço de cada vez. Joelhos e mãos firmes no chão.'}],
+  [{n:'Gato e camelo',s:2,h:30,f:'cat',c:'Arredonde e solte as costas devagar, junto com a respiração.'},
+   {n:'Gato e camelo',s:2,h:30,f:'cat',c:'Alivia a lombar. Movimento lento.'},
+   {n:'Gato e camelo',s:2,h:30,f:'cat',c:'Alivia a lombar. Amplitude pequena e confortável.'}]
+ ]},
+ C:{title:'Caminhada e fôlego',kind:'Aeróbico leve',circuit:true,work:[40,40,30],rest:[30,30,40],maxR:[5,4,4],items:[
+  [{n:'Marcha no lugar',f:'run',c:'Ritmo em que você ainda consegue conversar.'},{n:'Passo lateral',f:'step',c:'Um passo para o lado e junta os pés. Troque de lado.'},{n:'Sentar e levantar',f:'squatC',c:'Ritmo tranquilo, solte o ar ao subir.'},{n:'Círculos de braço',f:'circ',c:'Pode fazer marchando devagar.'},{n:'Passo lateral com braços',f:'step',c:'Abra os braços a cada passo.'}],
+  [{n:'Marcha no lugar',f:'run',c:'Ritmo em que você ainda consegue conversar.'},{n:'Passo lateral',f:'step',c:'Passos curtos. Junte os pés a cada passo.'},{n:'Sentar e levantar',f:'squatC',c:'Pés afastados, sem pressa.'},{n:'Círculos de braço',f:'circ',c:'Ombros soltos, respiração tranquila.'}],
+  [{n:'Marcha leve',f:'run',c:'Passos curtos e tranquilos.'},{n:'Passo lateral',f:'step',c:'Devagar, com a cadeira por perto para apoiar.'},{n:'Círculos de braço',f:'circ',c:'Pode fazer sentada.'},{n:'Sentar e levantar',f:'squatC',c:'Use as mãos nas coxas se precisar.'}]
+ ]}
+};
+const WARMG=[{n:'Marcha leve',t:40,f:'run',c:'Comece devagar e aumente o ritmo aos poucos.'},{n:'Passo lateral',t:40,f:'step',c:'Um passo para o lado e junta os pés. Troque de lado.'}];
+const WARM_SG=WARMG.map(e=>({...e,t:30}));
+const MOBG={
+ A:[{n:'Círculos de quadril',t:30,f:'hipc',c:'Mãos na cintura, faça círculos lentos com o quadril.'},
+    {n:'Balanço de perna com apoio',t:30,f:'swing',c:'Mão na parede, balance a perna devagar. 15s cada perna.'},
+    {n:'Gato e camelo',t:30,f:'cat',c:'Arredonde e solte as costas devagar.'},
+    {n:'Sentar e levantar lento',t:30,f:'squatC',c:'Bem devagar, para acordar as pernas.'}],
+ B:[{n:'Círculos de ombro',t:30,f:'circ',c:'Círculos grandes e lentos: 15s para frente, 15s para trás.'},
+    {n:'Abre e fecha braços',t:30,f:'hug',c:'Braços na altura do ombro. Abra o peito e feche.'},
+    {n:'Gato e camelo',t:30,f:'cat',c:'Arredonde e solte as costas devagar.'},
+    {n:'Flexão na parede lenta',t:30,f:'wall',c:'Desça e suba devagar, sem forçar.'}],
+ C:[{n:'Círculos de quadril',t:30,f:'hipc',c:'Mãos na cintura, círculos lentos.'},
+    {n:'Balanço de perna com apoio',t:30,f:'swing',c:'Mão na parede. 15s cada perna.'},
+    {n:'Círculos de ombro',t:30,f:'circ',c:'15s para frente, 15s para trás.'},
+    {n:'Gato e camelo',t:30,f:'cat',c:'Arredonde e solte as costas devagar.'}]
+};
+const BREATH=[{n:'Respiração diafragmática',t:45,f:'sitB',ph:'Respiração',c:'Sentada, mãos na barriga. Puxe o ar pelo nariz enchendo a barriga e solte devagar pela boca.'},
+ {n:'Assoalho pélvico',t:60,f:'sitB',ph:'Respiração',c:'Contraia a musculatura como se segurasse o xixi por 3 a 5 segundos e solte por 5. Não prenda a respiração.'}];
+const COOLSG={
+ A:[{n:'Panturrilha na parede',t:30,f:'calfS',c:'Perna de trás esticada e calcanhar no chão. 15s cada lado.'},
+    {n:'Quadríceps com apoio',t:30,f:'quad',c:'Mão na parede, segure o pé atrás com cuidado. 15s cada perna.'},...BREATH],
+ B:[{n:'Alongamento de peito',t:30,f:'chest',c:'Mão no batente da porta, gire o corpo devagar. 15s cada lado.'},
+    {n:'Ombro cruzado',t:30,f:'cross',c:'Puxe o braço esticado na frente do peito. 15s cada lado.'},...BREATH],
+ C:[{n:'Panturrilha na parede',t:30,f:'calfS',c:'Calcanhar no chão. 15s cada lado.'},
+    {n:'Alongamento de peito',t:30,f:'chest',c:'Mão no batente da porta. 15s cada lado.'},...BREATH]
+};
+const FEELG={facil:'Fácil',ok:'Na medida',pesado:'Pesado',desconf:'Senti desconforto'};
+const DANGER=['Sangramento vaginal','Contrações regulares e doloridas','Perda de líquido pela vagina','Falta de ar antes mesmo do esforço','Tontura ou sensação de desmaio','Dor de cabeça forte','Dor no peito','Fraqueza que atrapalhe o equilíbrio','Dor ou inchaço na panturrilha','O bebê se mexendo menos que o normal'];
+const CONDS={previa:'Placenta prévia (placenta baixa) depois de 26 semanas',sangra:'Sangramento persistente no 2º ou 3º trimestre',premat:'Risco de parto prematuro',bolsa:'Bolsa rompida',pre:'Pré-eclâmpsia ou pressão alta na gravidez',colo:'Colo do útero curto ou cerclagem',gemeos:'Gêmeos ou mais, com risco de parto prematuro',cora:'Doença do coração ou do pulmão',anemia:'Anemia grave'};
+const PREV={sim:'Sim, com regularidade',asvezes:'Às vezes',nao:'Não me exercitava'};
+
+/* troca de modo: as variáveis abaixo apontam para os dados do modo atual */
+let W,WARM,WARM_S,MOB,COOLS,LV,REST,DUR,FEEL;
+function gWeek(p){return p.week+Math.floor((Date.now()-new Date(p.weekDate))/(7*864e5));}
+const triOf=w=>w<=13?0:w<=27?1:2;
+const gBlocked=p=>!p.cleared||(p.conds&&p.conds.length>0);
+function applyMode(){
+  const g=GEST();
+  W=g?WG:WN;WARM=g?WARMG:WARMN;WARM_S=g?WARM_SG:WARM_SN;MOB=g?MOBG:MOBN;COOLS=g?COOLSG:COOLSN;
+  LV=g?LVG:LVN;REST=RESTN;DUR=g?[15,20,30]:DURN;FEEL=g?FEELG:FEELN;
+  if(g){const t=triOf(gWeek(S.profile));S.levels={A:t,B:t,C:t};if(S.dur>30)S.dur=30;}
+}
 const ROTS={gordura:['A','C','B','C'],forca:['A','B','C'],cond:['C','A','C','B'],geral:['A','C','B']};
-const FEEL={facil:'Fácil',ok:'Na medida',pesado:'Pesado'};
+const FEELN={facil:'Fácil',ok:'Na medida',pesado:'Pesado'};
 const GOALS={gordura:'Perder gordura',forca:'Ganhar força',cond:'Melhorar o fôlego',geral:'Um pouco de tudo'};
 const ACTS={sed:'Parado: não faço exercício',pouco:'Pouco ativo: me exercito às vezes',ativo:'Ativo: 2 a 3 vezes por semana',muito:'Muito ativo: 4 vezes ou mais'};
 const PUSH={a:'0 a 5',b:'6 a 15',c:'16 ou mais',x:'Não sei'};
@@ -352,7 +458,7 @@ function weekStart(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDat
 function thisWeek(){const w=weekStart(new Date()).getTime();return S.history.filter(h=>new Date(h.date)>=w);}
 
 /* ---------- perfil e recomendação ---------- */
-const rotation=()=>ROTS[S.profile?.goal]||ROTS.gordura;
+const rotation=()=>GEST()?['A','C','B','C']:(ROTS[S.profile?.goal]||ROTS.gordura);
 const nextType=()=>{const r=rotation();return r[S.rot%r.length];};
 const dec1=n=>n.toLocaleString('pt-BR',{maximumFractionDigits:1});
 function bmi(p){return p&&p.kg&&p.cm?p.kg/((p.cm/100)**2):null;}
@@ -364,7 +470,7 @@ function recommend(p){
   let B=p.push&&p.push!=='x'?{a:0,b:1,c:2}[p.push]:fromAct;
   let C=act;const b=bmi(p),notes=[];
   const adaptW={sed:2,pouco:1}[p.act]||0;
-  if(adaptW)notes.push(`Nas primeiras ${adaptW===1?'semana':adaptW+' semanas'}, no máximo 3 treinos por semana. O corpo se acostuma com o esforço e você evita dor muscular forte.`);
+  if(adaptW)notes.push(`${adaptW===1?'Na primeira semana':'Nas primeiras '+adaptW+' semanas'}, no máximo 3 treinos por semana. O corpo se acostuma com o esforço e você evita dor muscular forte.`);
   if(b&&b>=30){C=0;A=Math.min(A,1);notes.push('Circuito começa no nível mais leve, com polichinelo e burpee sem salto, para poupar os joelhos.');}
   if(p.health){A=B=C=0;notes.push('Como você marcou dor ou problema de saúde, tudo começa no Iniciante. Converse com um médico antes de aumentar a intensidade e pare se sentir dor.');}
   if(b&&b<18.5&&p.goal==='gordura')notes.push('Seu IMC já está abaixo da faixa recomendada. Em vez de perder peso, vale focar em ganhar força e comer bem.');
@@ -373,8 +479,19 @@ function recommend(p){
   if(p.goal==='cond')notes.push('Mais circuitos na semana para melhorar o fôlego.');
   return {levels:{A,B,C},dur:p.act==='sed'?Math.min(p.dur||20,20):(p.dur||30),adaptW,notes};
 }
+function recG(p){
+  const notes=[],adaptW={nao:2,asvezes:1}[p.prev]||0,wk=gWeek(p),t=triOf(wk);
+  const dur=p.prev==='nao'?Math.min(p.dur,15):p.prev==='asvezes'?Math.min(p.dur,20):p.dur;
+  if(adaptW)notes.push(`${adaptW===1?'Na primeira semana':'Nas primeiras 2 semanas'}, no máximo 3 treinos de ${dur} minutos. Depois, se estiver tudo bem, dá para aumentar o tempo aos poucos.`);
+  notes.push('Intensidade certa: você deve conseguir conversar durante todo o exercício. Se não conseguir falar, diminua o ritmo.');
+  if(t>=1)notes.push('A partir do 2º trimestre, evite ficar deitada de barriga para cima. O app já troca esses exercícios.');
+  if(t===2)notes.push('No 3º trimestre o equilíbrio muda. Treine sempre perto de uma parede ou cadeira firme.');
+  notes.push('Beba água antes, durante e depois. Evite treinar em lugar muito quente ou abafado.');
+  notes.push('Somando treinos e caminhadas leves, a meta recomendada é chegar a cerca de 150 minutos por semana, se o médico concordar.');
+  return {dur,adaptW,notes};
+}
 function adaptInfo(){
-  const p=S.profile;if(!p)return null;const w=recommend(p).adaptW;if(!w)return null;
+  const p=S.profile;if(!p)return null;const w=(p.mode==='gest'?recG(p):recommend(p)).adaptW;if(!w)return null;
   const wk=Math.floor((Date.now()-new Date(p.start))/(7*864e5));
   return wk<w?{wk:wk+1,of:w}:null;
 }
@@ -397,24 +514,25 @@ function makeSteps(type,o){
     o.ex.forEach((e,i)=>{for(let s=0;s<e.s;s++){
       st.push(e.h?{k:'time',ph:'Série '+(s+1)+' de '+e.s,n:e.n,c:e.c,f:e.f,t:e.h}:{k:'reps',ph:'Série '+(s+1)+' de '+e.s,n:e.n,c:e.c,f:e.f,r:e.r});
       const lastSet=s===e.s-1,lastEx=i===o.ex.length-1;
-      if(!(lastSet&&lastEx))st.push({k:'rest',ph:'Descanso',t:REST[lv],next:lastSet?o.ex[i+1].n:e.n+' · série '+(s+2)});
+      if(!(lastSet&&lastEx))st.push({k:'rest',ph:'Descanso',t:restOf(w,lv),next:lastSet?o.ex[i+1].n:e.n+' · série '+(s+2)});
     }});
   }
-  if(o.cool)COOLS[type].forEach(e=>st.push({k:'time',ph:'Alongamento',n:e.n,c:e.c,f:e.f,t:e.t}));
+  if(o.cool)COOLS[type].forEach(e=>st.push({k:'time',ph:e.ph||'Alongamento',n:e.n,c:e.c,f:e.f,t:e.t}));
   return st;
 }
+const restOf=(w,lv)=>w.restS?w.restS[lv]:REST[lv];
 const stepSec=s=>s.t||(/por /.test(s.r)?60:40);
 const estSec=st=>st.reduce((a,s)=>a+stepSec(s),0);
 const cache={};
 function config(type){
-  const lv=S.levels[type],key=type+lv+S.dur;if(cache[key])return cache[key];
+  const lv=S.levels[type],key=(GEST()?'g':'n')+type+lv+S.dur;if(cache[key])return cache[key];
   const w=W[type],goal=S.dur*60,cands=[];
   for(const warm of [true,false])for(const cool of [true]){
     const pen=(warm?0:60)+(cool?0:90);
     if(w.circuit){for(let R=1;R<=w.maxR[lv];R++)cands.push({warm,cool,rounds:R,pen});}
-    else for(let n=5;n>=3;n--)for(const adj of [1,0,-1]){
+    else for(let n=5;n>=(GEST()?2:3);n--)for(const adj of [1,0,-1]){
       const pick=w.keep.slice(0,n).sort((a,b)=>a-b);
-      const ex=pick.map(i=>{const e=w.items[i][lv];return {...e,s:Math.min(4,Math.max(2,e.s+adj))};});
+      const ex=pick.map(i=>{const e=w.items[i][lv];return {...e,s:Math.min(w.maxS||4,Math.max(2,e.s+adj))};});
       cands.push({warm,cool,ex,pen:pen+(5-n)*45});
     }
   }
@@ -430,6 +548,7 @@ function listItems(type){
 }
 const estMin=t=>Math.round(config(t).sec/60);
 function suggestion(){
+  if(GEST())return null;
   for(const t of ['A','B','C']){
     const lv=S.levels[t];if(lv>=2)continue;
     const last=S.history.filter(h=>h.type===t&&h.level===lv).slice(-3);
@@ -438,22 +557,30 @@ function suggestion(){
 }
 
 /* ---------- telas ---------- */
-const durSeg=()=>`<div class="seg" style="--n:4" role="group" aria-label="Tempo disponível">${DUR.map(d=>`<button aria-pressed="${d===S.dur}" data-dur="${d}">${d} min</button>`).join('')}</div>`;
+const durSeg=()=>`<div class="seg" style="--n:${DUR.length}" role="group" aria-label="Tempo disponível">${DUR.map(d=>`<button aria-pressed="${d===S.dur}" data-dur="${d}">${d} min</button>`).join('')}</div>`;
 const exRow=(e,cue)=>`<div class="ex">${fig(e.f)}<b>${e.n}</b><span class="dose">${e.dose}</span>${cue?`<small>${e.c}</small>`:''}</div>`;
 function summary(t){const w=W[t],lv=S.levels[t],c=config(t);
-  return (w.circuit?`${c.rounds} ${c.rounds>1?'voltas':'volta'} · ${w.work[lv]}s de esforço / ${w.rest[lv]}s de pausa`:`${c.ex.length} exercícios · descanso de ${REST[lv]}s`)
-    +` · aquecimento ${c.warm?'completo':'curto'} · 2 min de mobilidade`+(c.cool?' · alongamento no fim':'');}
+  return (w.circuit?`${c.rounds} ${c.rounds>1?'voltas':'volta'} · ${w.work[lv]}s de esforço / ${w.rest[lv]}s de pausa`:`${c.ex.length} exercícios · descanso de ${restOf(w,lv)}s`)
+    +` · aquecimento ${c.warm?'completo':'curto'} · 2 min de mobilidade`+(c.cool?(GEST()?' · alongamento e respiração no fim':' · alongamento no fim'):'');}
 const prepRows=t=>`<details class="more"><summary>Antes: 2 min de mobilidade</summary><div>${MOB[t].map(e=>exRow({...e,dose:e.t+'s'},true)).join('')}</div></details>
-  <details class="more"><summary>Depois: alongamento</summary><div>${COOLS[t].map(e=>exRow({...e,dose:e.t+'s'},true)).join('')}</div></details>`;
+  <details class="more"><summary>Depois: ${GEST()?'alongamento e respiração':'alongamento'}</summary><div>${COOLS[t].map(e=>exRow({...e,dose:e.t+'s'},true)).join('')}</div></details>`;
+const dangerCard=open=>`<section class="card"><details class="more" style="border:0;padding:0" ${open?'open':''}><summary style="color:var(--work)">Pare e procure o médico se sentir</summary>
+  <ul class="notes" style="margin-top:8px">${DANGER.map(d=>`<li>${d}</li>`).join('')}</ul></details></section>`;
 function vHoje(){
   const t=nextType(),w=W[t],lv=S.levels[t],done=thisWeek().length,sug=suggestion(),G=weeklyGoal(),ad=adaptInfo();
-  let h=`<div class="stack">`;
-  if(!S.profile&&!S.skipped)h+=`<section class="card"><h3>Quer um plano sob medida?</h3><p class="muted">Responda 6 perguntas rápidas e o app escolhe o nível de cada treino, quantos dias por semana e como começar. É opcional.</p>
+  let h=`<div class="stack">`;const g=GEST();
+  if(!S.profile&&!S.skipped)h+=`<section class="card"><h3>Quer um plano sob medida?</h3><p class="muted">Responda algumas perguntas rápidas e o app escolhe o nível de cada treino, quantos dias por semana e como começar. Tem também um modo para gestantes. É opcional.</p>
     <div class="row"><button class="btn" data-go="perfil">Montar meu plano</button><button class="ghost" data-skip="1">Agora não</button></div></section>`;
+  if(g&&gBlocked(S.profile))return h+`<section class="card"><span class="label">Modo gestante</span><h2>Treinos pausados</h2>
+    <p class="muted">${!S.profile.cleared?'Para montar os treinos, o app precisa que o obstetra tenha liberado atividade física.':'Com a situação que você marcou, o exercício precisa ser orientado diretamente pelo médico.'} Converse na próxima consulta e depois atualize o cadastro.</p>
+    <button class="btn" data-go="perfil">Atualizar cadastro</button></section>${dangerCard(true)}</div>`;
+  if(g&&S.lastDiscomfort&&Date.now()-new Date(S.lastDiscomfort)<3*864e5)h+=`<section class="card" style="border-color:var(--work)"><h3>Você sentiu desconforto no último treino</h3>
+    <p class="muted">Descanse hoje. Se o desconforto continuar ou aparecer algum dos sinais abaixo, procure seu médico antes de treinar de novo.</p>
+    <ul class="notes">${DANGER.map(d=>`<li>${d}</li>`).join('')}</ul><button class="ghost" data-okdisc="1">Estou bem, ocultar aviso</button></section>`;
   h+=`<section class="card hero"><span class="label">Próximo treino · ${w.kind}</span>
     <h2>Treino ${t}: ${w.title}</h2>
     <div class="stack" style="gap:6px"><span class="label">Quanto tempo você tem?</span>${durSeg()}</div>
-    <div class="chips">${ad?`<span class="chip">Adaptação · semana ${ad.wk} de ${ad.of}</span>`:''}<span class="chip">${LV[lv]}</span><span class="chip">≈ ${estMin(t)} min</span><span class="chip">sem equipamento</span></div>
+    <div class="chips">${ad?`<span class="chip">Adaptação · semana ${ad.wk} de ${ad.of}</span>`:''}<span class="chip">${LV[lv]}</span>${g?`<span class="chip">${gWeek(S.profile)}ª semana</span>`:''}<span class="chip">≈ ${estMin(t)} min</span><span class="chip">sem equipamento</span></div>
     <button class="btn" data-start="${t}">Começar treino ${t}</button></section>`;
   if(sug)h+=`<section class="card"><h3>O treino ${sug} ficou fácil</h3><p class="muted">Você marcou "Fácil" nas últimas 3 sessões. Hora de subir para ${LV[S.levels[sug]+1]}.</p>
     <div class="row"><button class="btn" data-up="${sug}">Subir de nível</button><button class="ghost" data-dismiss="${sug}">Agora não</button></div></section>`;
@@ -461,21 +588,32 @@ function vHoje(){
     <p class="muted" style="font-size:14px">${summary(t)}</p></section>`;
   h+=`<section class="card"><div class="row" style="justify-content:space-between"><h3>Meta da semana</h3><span class="num" style="font-size:22px;font-weight:700">${Math.min(done,G)}/${G}</span></div>
     <div class="week" style="grid-template-columns:repeat(${G},1fr)">${Array.from({length:G},(_,i)=>`<span class="${i<done?'on':''}"></span>`).join('')}</div>
-    <p class="muted" style="font-size:14px">${G} treinos por semana, na ordem ${rotation().join(', ')}.${ad?' Na fase de adaptação, não passe disso mesmo com vontade.':''} Nos outros dias, caminhe 30 minutos.</p></section>`;
+    <p class="muted" style="font-size:14px">${G} treinos por semana, na ordem ${rotation().join(', ')}.${ad?' Na fase de adaptação, não passe disso mesmo com vontade.':''} ${g?'Nos outros dias, caminhadas leves de 20 a 30 minutos, se o médico concordar.':'Nos outros dias, caminhe 30 minutos.'}</p></section>`;
+  if(g)h+=dangerCard(false);
   return h+`</div>`;
 }
 function vPlano(){
+  const g=GEST();if(g&&gBlocked(S.profile))return vHoje();
   let h=`<div class="stack"><section class="card"><span class="label">Tempo por treino</span>${durSeg()}
-    <p class="muted" style="font-size:14px">Com menos tempo, o app tira os exercícios menos importantes, reduz séries ou voltas e encurta o aquecimento. Com mais tempo, acrescenta séries.</p></section>`;
+    <p class="muted" style="font-size:14px">Com menos tempo, o app tira os exercícios menos importantes, reduz séries ou voltas e encurta o aquecimento. Com mais tempo, acrescenta séries.${g?' Mobilidade, alongamento e respiração nunca são cortados.':''}</p></section>`;
   for(const t of ['A','B','C']){
     const w=W[t],lv=S.levels[t];
     h+=`<section class="card"><div><span class="label">Treino ${t} · ${w.kind} · ≈ ${estMin(t)} min</span><h2>${w.title}</h2></div>
-      <div class="seg" role="group" aria-label="Nível do treino ${t}">${LV.map((n,i)=>`<button aria-pressed="${i===lv}" data-lv="${t}:${i}">${n}</button>`).join('')}</div>
+      ${g?`<div class="chips"><span class="chip">Adaptado ao ${LV[lv]}</span></div>`:`<div class="seg" role="group" aria-label="Nível do treino ${t}">${LV.map((n,i)=>`<button aria-pressed="${i===lv}" data-lv="${t}:${i}">${n}</button>`).join('')}</div>`}
       <div>${listItems(t).map(e=>exRow(e,true)).join('')}</div>
       ${prepRows(t)}
       <p class="muted" style="font-size:14px">${summary(t)}</p>
       <button class="ghost" data-start="${t}">Fazer este treino agora</button></section>`;
   }
+  if(g)return h+`<section class="card"><h3>Cuidados na gravidez</h3><ul class="tips">
+    <li>O objetivo é saúde e bem-estar, não perder peso nem ganhar desempenho. Os treinos mudam sozinhos a cada trimestre.</li>
+    <li>Intensidade certa: dá para conversar durante todo o exercício.</li>
+    <li>Não prenda a respiração: solte o ar na hora de fazer força.</li>
+    <li>A partir do 2º trimestre, nada de ficar deitada de barriga para cima. O app já troca esses exercícios.</li>
+    <li>Evite movimentos com risco de queda ou de batida na barriga. Use parede e cadeira firme como apoio.</li>
+    <li>Beba água e evite lugares muito quentes.</li>
+    <li>Os exercícios de assoalho pélvico no fim de cada treino ajudam no parto e na recuperação.</li>
+    <li>Depois do parto, só volte a treinar com liberação médica. Aí dá para trocar para o treino padrão no Perfil.</li></ul></section>${dangerCard(true)}</div>`;
   h+=`<section class="card"><h3>Como evoluir</h3><ul class="tips">
     <li>Ao terminar, marque como foi. Três "Fácil" seguidos no mesmo treino e o app sugere subir de nível.</li>
     <li>Se marcar "Pesado" várias vezes, mantenha o nível e capriche na execução antes de aumentar.</li>
@@ -502,9 +640,9 @@ function vHist(){
     <div><span class="num">${H.length}</span><span class="label">treinos</span></div>
     <div><span class="num">${mins}</span><span class="label">minutos</span></div>
     <div><span class="num">${thisWeek().length}</span><span class="label">nesta semana</span></div></div>
-    <div><span class="label">Treinos por semana</span>${svg}</div></section>`+weightCard();
+    <div><span class="label">Treinos por semana</span>${svg}</div></section>`+(GEST()?'':weightCard());
   if(!H.length)h+=`<section class="card"><h3>Seu primeiro treino aparece aqui</h3><p class="muted">Termine uma sessão e marque como foi. O registro fica salvo neste aparelho.</p><button class="btn" data-go="hoje">Ir para o treino de hoje</button></section>`;
-  else h+=`<section class="card"><span class="label">Sessões</span><div>${H.slice().reverse().map(x=>`<div class="hist"><div><span class="tag ${x.type}">${x.type}</span><b>${W[x.type].title}</b><div class="muted" style="font-size:13px;margin-left:30px">${dDate(x.date)} · ${LV[x.level]}</div></div><div style="text-align:right"><span class="num" style="font-size:18px;font-weight:700">${x.mins} min</span><div class="muted" style="font-size:13px">${FEEL[x.feel]}</div></div></div>`).join('')}</div></section>`;
+  else h+=`<section class="card"><span class="label">Sessões</span><div>${H.slice().reverse().map(x=>`<div class="hist"><div><span class="tag ${x.type}">${x.type}</span><b>${(x.mode==='gest'?WG:WN)[x.type].title}</b><div class="muted" style="font-size:13px;margin-left:30px">${dDate(x.date)} · ${(x.mode==='gest'?LVG:LVN)[x.level]}</div></div><div style="text-align:right"><span class="num" style="font-size:18px;font-weight:700">${x.mins} min</span><div class="muted" style="font-size:13px">${FEELG[x.feel]}</div></div></div>`).join('')}</div></section>`;
   return h+`</div>`;
 }
 function weightCard(){
@@ -524,8 +662,38 @@ function weightCard(){
 }
 let EDIT=false,DELC=false;
 function radios(name,map,cur){return `<div class="opts">${Object.entries(map).map(([k,v])=>`<label><input type="radio" name="${name}" value="${k}" ${k===cur?'checked':''}>${v}</label>`).join('')}</div>`;}
+let PMODE=null;
+const modePick=m=>`<section class="card"><span class="label">Para quem é o plano?</span><div class="seg" style="--n:2" role="group" aria-label="Tipo de plano">
+  <button type="button" aria-pressed="${m!=='gest'}" data-pmode="n">Treino padrão</button><button type="button" aria-pressed="${m==='gest'}" data-pmode="gest">Gestante</button></div></section>`;
+function checks(map,cur){return `<div class="stack" style="gap:8px">${Object.entries(map).map(([k,v])=>`<label class="check"><input type="checkbox" name="cond" value="${k}" ${cur.includes(k)?'checked':''}><span>${v}</span></label>`).join('')}</div>`;}
+function vPerfilG(p){
+  const r=recG(p),wk=gWeek(p),ad=adaptInfo(),bl=gBlocked(p);
+  return `<div class="stack"><section class="card"><span class="label">Modo gestante</span><h2>${wk}ª semana · ${LVG[triOf(wk)]}</h2>
+    <dl class="kv"><dt>Liberação médica</dt><dd>${p.cleared?'Sim':'Ainda não'}</dd><dt>Antes da gravidez</dt><dd>${PREV[p.prev]}</dd>
+    <dt>Treinos</dt><dd>${p.days} por semana, ${S.dur} min</dd><dt>Fase</dt><dd>${bl?'Treinos pausados':ad?`Adaptação, semana ${ad.wk} de ${ad.of}`:'Manutenção'}</dd></dl>
+    <p class="muted" style="font-size:13px">A semana avança sozinha e os treinos mudam a cada trimestre.</p></section>
+    ${bl?'':`<section class="card"><span class="label">Recomendações</span><ul class="notes">${r.notes.map(n=>`<li>${n}</li>`).join('')}</ul></section>`}
+    ${dangerCard(false)}
+    <div class="row"><button class="btn" data-edit="1">Editar dados</button><button class="ghost" data-del="1">${DELC?'Toque de novo para apagar':'Apagar cadastro'}</button></div></div>`;
+}
+function formG(p){
+  const q=p&&p.mode==='gest'?p:{week:'',cleared:false,conds:[],prev:'asvezes',days:3,dur:20};
+  const wk=q.week?gWeek(q):'';
+  return `<form id="pf" class="stack">${modePick('gest')}<section class="card"><div><span class="label">Modo gestante</span><h2>${p&&p.mode==='gest'?'Editar cadastro':'Plano para gestante'}</h2></div>
+    <p class="muted">Exercícios leves e seguros para cada fase da gravidez. Os dados ficam só neste aparelho.</p>
+    <label class="field"><span>De quantas semanas você está?</span><input type="number" id="pf-week" inputmode="numeric" min="4" max="42" required value="${wk}"></label>
+    <label class="check"><input type="checkbox" id="pf-cleared" ${q.cleared?'checked':''}><span><b>Meu obstetra liberou atividade física</b> nesta gravidez</span></label></section>
+    <section class="card"><div class="field"><span>Você tem alguma destas situações?</span><small>Se marcar qualquer uma, o app não monta treinos: o exercício precisa ser orientado pelo médico.</small>${checks(CONDS,q.conds||[])}</div></section>
+    <section class="card"><div class="field"><span>Antes da gravidez, você fazia exercício?</span>${radios('prev',PREV,q.prev)}</div>
+    <div class="field"><span>Quantos dias por semana dá para treinar?</span>${radios('days',{3:'3',4:'4',5:'5'},String(q.days))}</div>
+    <div class="field"><span>Quanto tempo por treino?</span>${radios('dur',{15:'15 min',20:'20 min',30:'30 min'},String(q.dur))}</div></section>
+    <div class="row"><button class="btn" type="submit">${p&&p.mode==='gest'?'Salvar':'Criar plano'}</button>${p?'<button class="ghost" type="button" data-cancel="1">Cancelar</button>':''}</div></form>`;
+}
 function vPerfil(){
   const p=S.profile;
+  if(p&&!EDIT&&p.mode==='gest')return vPerfilG(p);
+  const m=PMODE||(p?.mode==='gest'?'gest':'n');
+  if((!p||EDIT)&&m==='gest')return formG(p);
   if(p&&!EDIT){const r=recommend(p),b=bmi(p),ad=adaptInfo();
     return `<div class="stack"><section class="card"><span class="label">Seu ponto de partida</span><h2>${GOALS[p.goal]}</h2>
       <dl class="kv">${p.kg?`<dt>Peso</dt><dd>${dec1(p.kg)} kg</dd>`:''}${p.cm?`<dt>Altura</dt><dd>${p.cm} cm</dd>`:''}
@@ -536,8 +704,8 @@ function vPerfil(){
       <section class="card"><span class="label">Nível de cada treino agora</span><dl class="kv">${['A','B','C'].map(t=>`<dt>Treino ${t}</dt><dd>${LV[S.levels[t]]} <span class="muted" style="font-weight:400">· ${W[t].title}</span></dd>`).join('')}</dl></section>
       ${r.notes.length?`<section class="card"><span class="label">Recomendações</span><ul class="notes">${r.notes.map(n=>`<li>${n}</li>`).join('')}</ul></section>`:''}
       <div class="row"><button class="btn" data-edit="1">Editar dados</button><button class="ghost" data-del="1">${DELC?'Toque de novo para apagar':'Apagar cadastro'}</button></div></div>`;}
-  const q=p||{goal:'gordura',act:'pouco',push:'x',sq:'x',days:4,dur:30};
-  return `<form id="pf" class="stack"><section class="card"><div><span class="label">Tudo opcional</span><h2>${p?'Editar cadastro':'Monte seu plano'}</h2></div>
+  const q=p&&p.mode!=='gest'?p:{goal:'gordura',act:'pouco',push:'x',sq:'x',days:4,dur:30};
+  return `<form id="pf" class="stack">${modePick('n')}<section class="card"><div><span class="label">Tudo opcional</span><h2>${p&&!GEST()?'Editar cadastro':'Monte seu plano'}</h2></div>
     <p class="muted">Com essas respostas o app escolhe por onde você começa. Os dados ficam só neste aparelho.</p>
     <div class="two"><label class="field"><span>Peso (kg)</span><input type="number" id="pf-kg" inputmode="decimal" step="0.1" min="25" max="300" value="${q.kg||''}"></label>
     <label class="field"><span>Altura (cm)</span><input type="number" id="pf-cm" inputmode="numeric" min="100" max="230" value="${q.cm||''}"></label></div></section>
@@ -552,7 +720,8 @@ function vPerfil(){
 }
 function route(){
   const v=(location.hash||'#hoje').slice(1),ok=['hoje','plano','historico','perfil'].includes(v)?v:'hoje';
-  if(ok!=='perfil'){EDIT=false;DELC=false;}
+  if(ok!=='perfil'){EDIT=false;DELC=false;PMODE=null;}
+  applyMode();const hl=$('header .label');if(hl)hl.textContent=GEST()?'Modo gestante · exercícios leves':'Força · condicionamento · gordura';
   document.querySelectorAll('.tabs a').forEach(a=>{if(a.dataset.v===ok)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current');});
   $('#view').innerHTML=ok==='plano'?vPlano():ok==='historico'?vHist():ok==='perfil'?vPerfil():vHoje();
 }
@@ -561,15 +730,25 @@ document.addEventListener('submit',e=>{
   if(f.id==='wf'){const kg=parseFloat($('#w-kg').value);if(kg>=25&&kg<=300){S.weights.push({date:new Date().toISOString(),kg});if(S.profile)S.profile.kg=kg;save();route();}return;}
   if(f.id!=='pf')return;
   const val=n=>f.querySelector(`input[name="${n}"]:checked`)?.value;
+  if($('#pf-week')){
+    const week=parseInt($('#pf-week').value);if(!(week>=4&&week<=42)){$('#pf-week').focus();return;}
+    const old=S.profile,wasG=old?.mode==='gest';
+    if(!wasG){S.levelsN=S.levels;S.rot=0;}
+    const p={mode:'gest',week,weekDate:new Date().toISOString(),cleared:$('#pf-cleared').checked,
+      conds:[...f.querySelectorAll('input[name="cond"]:checked')].map(i=>i.value),prev:val('prev')||'asvezes',
+      days:+(val('days')||3),dur:+(val('dur')||20),start:wasG?old.start:new Date().toISOString()};
+    S.profile=p;S.dur=recG(p).dur;EDIT=false;PMODE=null;save();route();window.scrollTo(0,0);return;
+  }
   const kg=parseFloat($('#pf-kg').value)||null,cm=parseInt($('#pf-cm').value)||null;
-  const old=S.profile;
+  const old0=S.profile,old=old0?.mode==='gest'?null:old0;
+  if(old0?.mode==='gest'){S.rot=0;}
   const p={kg,cm,goal:val('goal')||'geral',act:val('act')||'pouco',push:val('push')||'x',sq:val('sq')||'x',days:+(val('days')||4),dur:+(val('dur')||30),health:$('#pf-health').checked,start:old?.start||new Date().toISOString()};
   const r=recommend(p);
   if(!old){S.levels=r.levels;S.rot=0;}
   else for(const t of ['A','B','C'])S.levels[t]=Math.min(S.levels[t],r.levels[t]);
   S.dur=r.dur;S.profile=p;
   if(kg&&(!S.weights.length||S.weights[S.weights.length-1].kg!==kg))S.weights.push({date:new Date().toISOString(),kg});
-  EDIT=false;save();route();window.scrollTo(0,0);
+  EDIT=false;PMODE=null;save();route();window.scrollTo(0,0);
 });
 window.addEventListener('hashchange',route);
 document.addEventListener('click',e=>{
@@ -582,8 +761,10 @@ document.addEventListener('click',e=>{
   else if(b.dataset.go){location.hash=b.dataset.go;}
   else if(b.dataset.skip){S.skipped=true;save();route();}
   else if(b.dataset.edit){EDIT=true;route();window.scrollTo(0,0);}
-  else if(b.dataset.cancel){EDIT=false;route();}
-  else if(b.dataset.del){if(DELC){S.profile=null;S.skipped=false;DELC=false;save();location.hash='hoje';route();}else{DELC=true;route();}}
+  else if(b.dataset.cancel){EDIT=false;PMODE=null;route();}
+  else if(b.dataset.pmode){PMODE=b.dataset.pmode;route();}
+  else if(b.dataset.okdisc){S.lastDiscomfort=null;save();route();}
+  else if(b.dataset.del){if(DELC){if(GEST()&&S.levelsN)S.levels=S.levelsN;S.profile=null;S.skipped=false;DELC=false;save();location.hash='hoje';route();}else{DELC=true;route();}}
 });
 
 /* ---------- sessão ---------- */
@@ -634,8 +815,8 @@ function renderS(){
     el.innerHTML=`<div class="s-in"><div class="s-top"><span class="label" style="flex:1">Treino ${X.type} concluído</span></div>
       <div class="stage rest"><div><span class="label">${W[X.type].title}</span><h2>Mandou bem!</h2></div>
       <div class="mainrow"><span class="big num">${X.mins}</span><span class="unit">minutos</span></div>
-      <p class="cue">Como foi o treino? Isso ajuda a decidir quando subir de nível.</p></div>
-      <div class="s-ctrl">${Object.entries(FEEL).map(([k,v],i)=>`<button class="${i===1?'btn wide':'ghost'}" data-feel="${k}">${v}</button>`).join('')}</div></div>`;
+      <p class="cue">${GEST()?'Como você se sentiu? Se sentiu qualquer desconforto, marque abaixo.':'Como foi o treino? Isso ajuda a decidir quando subir de nível.'}</p></div>
+      <div class="s-ctrl">${Object.entries(FEEL).map(([k,v],i)=>`<button class="${i===1?'btn wide':'ghost'}" ${k==='desconf'?'style="grid-column:1/-1"':''} data-feel="${k}">${v}</button>`).join('')}</div></div>`;
     return;
   }
   const vbtn=`<button class="vbtn" data-s="voice" aria-pressed="${S.voice!==false}">Voz ${S.voice!==false?'ligada':'desligada'}</button>`;
@@ -650,7 +831,7 @@ function renderS(){
     return;
   }
   const s=X.steps[X.i],pct=X.i/X.steps.length*100;
-  const cls=s.k==='rest'?'rest':['Aquecimento','Mobilidade','Alongamento'].includes(s.ph)?'prep':'work';
+  const cls=s.k==='rest'?'rest':['Aquecimento','Mobilidade','Alongamento','Respiração'].includes(s.ph)?'prep':'work';
   let main,ctrl;
   if(s.k==='reps'){const side=s.r.match(/por \w+/);
     main=`<div><div class="mainrow"><span class="big num">${s.r.replace(/ por \w+/,'')}</span><span class="unit">repetições${side?' '+side[0]:''}</span></div>
@@ -675,7 +856,8 @@ const confirmBox=()=>`<div class="confirm"><div class="card"><h3>Encerrar o trei
 function closeS(){$('#session').hidden=true;document.body.style.overflow='';try{lock?.release();}catch(e){}lock=null;X=null;route();}
 $('#session').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||!X)return;const a=b.dataset.s;
-  if(b.dataset.feel){S.history.push({date:new Date().toISOString(),type:X.type,level:S.levels[X.type],mins:X.mins,feel:b.dataset.feel});
+  if(b.dataset.feel){S.history.push({date:new Date().toISOString(),type:X.type,level:S.levels[X.type],mins:X.mins,feel:b.dataset.feel,mode:GEST()?'gest':'n'});
+    if(b.dataset.feel==='desconf'){S.lastDiscomfort=new Date().toISOString();if(nextType()===X.type)S.rot=(S.rot+1)%rotation().length;save();closeS();location.hash='hoje';return;}
     if(nextType()===X.type)S.rot=(S.rot+1)%rotation().length;save();closeS();location.hash='historico';return;}
   if(a==='voice'){S.voice=S.voice===false;save();if(S.voice===false){try{speechSynthesis.cancel();}catch(e){}}else say('Voz ligada.');renderS();return;}
   if(X.mode==='demo'){
