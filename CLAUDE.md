@@ -26,6 +26,7 @@ App de treino em casa sem equipamento (força, condicionamento e perda de gordur
   - A partir do 2º trimestre não há exercício deitada de costas. Sem saltos, sem prender a respiração, sempre com apoio.
   - Sem sugestão de subir de nível e sem registro de peso. O fim do treino tem a opção "Senti desconforto", que mostra os sinais de alerta (`DANGER`).
   - Baseado nas recomendações do ACOG para exercício na gravidez. Qualquer mudança aqui deve manter esses cuidados.
+- Tela sempre ligada na sessão (`keepAwake`/`letSleep`): Wake Lock que é pedido de novo quando o celular solta, mais um vídeo preto, mudo e invisível em loop como plano B.
 - Dados ficam no `localStorage` do aparelho (chave `treino-sala`). Não há servidor.
 
 ## Para publicar uma versão nova

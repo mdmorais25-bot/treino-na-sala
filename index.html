@@ -768,7 +768,26 @@ document.addEventListener('click',e=>{
 });
 
 /* ---------- sessão ---------- */
-let X=null,ac=null,lock=null,ptVoice=null;
+/* ---------- tela sempre ligada durante a sessão ---------- */
+const AWAKE={lock:null,video:null,on:false};
+async function wakeLockOn(){
+  if(!AWAKE.on||document.visibilityState!=='visible')return;
+  if(AWAKE.lock&&!AWAKE.lock.released)return;
+  try{AWAKE.lock=await navigator.wakeLock.request('screen');AWAKE.lock.addEventListener('release',()=>{if(AWAKE.on)setTimeout(wakeLockOn,500);});}catch(e){AWAKE.lock=null;}
+}
+function videoOn(){
+  /* plano B: um vídeo preto, mudo e invisível em loop faz o Android e o iPhone manterem a tela acesa */
+  if(!AWAKE.video){const v=document.createElement('video');v.muted=true;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.setAttribute('muted','');
+    v.setAttribute('aria-hidden','true');v.style.cssText='position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:0;top:0';
+    v.innerHTML='<source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAH9EU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggHn7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiECfQAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYgrKHer/QzFd5yBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYgrKHer/QzFd2fIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MDIuMDAwMDAwMDAwAB9DtnXD54EAo6OBAACAEAIAnQEqEAAQAABHCIWFiJmEiAICAAwNYAD+/6tQgKOZgQPoALEBAAEQEAAYADA/9AwAAAD+/6tQgBxTu2uRu4+zgQC3iveBAfGCAZ/wgQM=" type="video/webm"><source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMvbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAll0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHRbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABfG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAATxzdGJsAAAAvHN0c2QAAAAAAAAAAQAAAKxhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAAMmF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADAAg8SJZYAQAEaO+Py/34+AAAAAAQcGFzcAAAAAEAAAABAAAAFGJ0cnQAAAAAAAALQAAAC0AAAAAYc3R0cwAAAAAAAAABAAAAAgAAQAAAAAAUc3RzcwAAAAAAAAABAAAAAQAAABxzdHNjAAAAAAAAAAEAAAABAAAAAgAAAAEAAAAcc3RzegAAAAAAAAAAAAAAAgAAAsQAAAAMAAAAFHN0Y28AAAAAAAAAAQAAA18AAABidWR0YQAAAFptZXRhAAAAAAAAACFoZGxyAAAAAAAAAABtZGlyYXBwbAAAAAAAAAAAAAAAAC1pbHN0AAAAJal0b28AAAAdZGF0YQAAAAEAAAAATGF2ZjYwLjE2LjEwMAAAAAhmcmVlAAAC2G1kYXQAAAKqBgX//6bcRem95tlIt5Ys2CDZI+7veDI2NCAtIGNvcmUgMTY0IHIzMTA4IDMxZTE5ZjkgLSBILjI2NC9NUEVHLTQgQVZDIGNvZGVjIC0gQ29weWxlZnQgMjAwMy0yMDIzIC0gaHR0cDovL3d3dy52aWRlb2xhbi5vcmcveDI2NC5odG1sIC0gb3B0aW9uczogY2FiYWM9MSByZWY9MSBkZWJsb2NrPTE6MDowIGFuYWx5c2U9MHgzOjB4MyBtZT1oZXggc3VibWU9MiBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0wIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MCA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0wIHRocmVhZHM9MSBsb29rYWhlYWRfdGhyZWFkcz0xIHNsaWNlZF90aHJlYWRzPTAgbnI9MCBkZWNpbWF0ZT0xIGludGVybGFjZWQ9MCBibHVyYXlfY29tcGF0PTAgY29uc3RyYWluZWRfaW50cmE9MCBiZnJhbWVzPTMgYl9weXJhbWlkPTIgYl9hZGFwdD0xIGJfYmlhcz0wIGRpcmVjdD0xIHdlaWdodGI9MSBvcGVuX2dvcD0wIHdlaWdodHA9MSBrZXlpbnQ9MjUwIGtleWludF9taW49MSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTEwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAABJliIQAFv/sf8JVf9ECkR5tf/EAAAAIQZohGIK//vA=" type="video/mp4">';
+    document.body.appendChild(v);AWAKE.video=v;}
+  try{const pr=AWAKE.video.play();if(pr)pr.catch(()=>{});}catch(e){}
+}
+function keepAwake(){AWAKE.on=true;videoOn();wakeLockOn();}
+function letSleep(){AWAKE.on=false;try{AWAKE.lock?.release();}catch(e){}AWAKE.lock=null;try{AWAKE.video?.pause();}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(AWAKE.on&&document.visibilityState==='visible'){videoOn();wakeLockOn();}});
+setInterval(()=>{if(AWAKE.on&&document.visibilityState==='visible'){wakeLockOn();if(AWAKE.video&&AWAKE.video.paused)videoOn();}},15000);
+let X=null,ac=null,ptVoice=null;
 function pickVoice(){try{const v=speechSynthesis.getVoices();ptVoice=v.find(x=>/^pt[-_]BR/i.test(x.lang))||v.find(x=>/^pt/i.test(x.lang))||null;}catch(e){}}
 try{pickVoice();speechSynthesis.onvoiceschanged=pickVoice;}catch(e){}
 function say(t,keep){
@@ -785,7 +804,7 @@ function announce(s){
 function beep(f,d){try{if(!ac)return;const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.25,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.start();o.stop(ac.currentTime+d);}catch(e){}}
 async function startSession(type){
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();ac.resume();}catch(e){}
-  try{lock=await navigator.wakeLock?.request('screen');}catch(e){lock=null;}
+  keepAwake();
   const cfg=config(type),steps=makeSteps(type,cfg),lv=S.levels[type],w=W[type];
   steps.unshift({k:'rest',ph:'Prepare-se',t:5,next:steps[0].n});
   const demo=w.circuit?w.items[lv].map(e=>({...e,dose:`${w.work[lv]}s de esforço · ${cfg.rounds} ${cfg.rounds>1?'voltas':'volta'}`}))
@@ -853,7 +872,7 @@ function renderS(){
     ${X.confirm?confirmBox():''}</div>`;
 }
 const confirmBox=()=>`<div class="confirm"><div class="card"><h3>Encerrar o treino?</h3><p class="muted">Esta sessão não vai entrar no histórico.</p><div class="row"><button class="btn" data-s="resume">Continuar treinando</button><button class="ghost" data-s="quit">Encerrar</button></div></div></div>`;
-function closeS(){$('#session').hidden=true;document.body.style.overflow='';try{lock?.release();}catch(e){}lock=null;X=null;route();}
+function closeS(){$('#session').hidden=true;document.body.style.overflow='';letSleep();X=null;route();}
 $('#session').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b||!X)return;const a=b.dataset.s;
   if(b.dataset.feel){S.history.push({date:new Date().toISOString(),type:X.type,level:S.levels[X.type],mins:X.mins,feel:b.dataset.feel,mode:GEST()?'gest':'n'});
@@ -878,7 +897,6 @@ $('#session').addEventListener('click',e=>{
   else if(a==='resume'){X.confirm=false;if(s.t)X.end=Date.now()+X.left*1000;renderS();}
   else if(a==='quit')closeS();
 });
-document.addEventListener('visibilitychange',async()=>{if(X&&document.visibilityState==='visible'&&!lock){try{lock=await navigator.wakeLock?.request('screen');}catch(e){}}});
 route();
 requestAnimationFrame(animate);
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
