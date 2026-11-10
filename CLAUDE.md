@@ -22,6 +22,7 @@ App de treino em casa sem equipamento (força, condicionamento e perda de gordur
 - Sessão guiada: demonstração dos exercícios (pode pular), contagem "3, 2, 1", voz em pt-BR (pode desligar).
   - Narração por fases (`INTRO`, `announce`): aquecimento, mobilidade, transição de 20 s "Aquecimento concluído" (passo com `tr:1`), começo do treino, alongamento, respiração.
   - Contagem guiada das repetições (`repTick`): a voz fala cada número no ritmo do exercício (`CAD` em segundos por repetição, vezes `PACE`), trata os lados (`repInfo`, `SIDE`): exercícios alternados (nome com "alternado", "com salto" ou "Perdigueiro") falam "Direita 1, Esquerda 1…"; os unilaterais contam um lado inteiro e dizem "Agora, a perna esquerda". Passa sozinha para o descanso.
+  - Voz ajustável no cartão "Ajustes do treino": velocidade (`S.vrate`, padrão rápida) e quanto fala (`S.vmode`: completa ou resumida; `V(completa, resumida)` escolhe a frase). Botão "Testar voz".
   - O exercício só começa depois que a voz termina a instrução (`say` com callback, `X.wait`, `go()`), com botão "Começar agora". Sem voz ou se a fala falhar, começa na hora. O boneco se move no mesmo ritmo. Pode desligar (`S.count`).
   - Descanso ajustável (`S.restPref`: 'auto' ou segundos; gestante no mínimo 60 s), mais botões −15 s e +15 s no descanso. Ajustes ficam no cartão "Ajustes do treino" da aba Plano.
 - Ilustrações: bonecos de traço animados entre duas poses (`PO` e `FIG`). No modo gestante o boneco ganha barriga (`.bel`; `front:1` marca poses de frente).
