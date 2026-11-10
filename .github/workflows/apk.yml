@@ -1,0 +1,55 @@
+# Gera o APK do Treino na Sala (TWA via Bubblewrap) e publica numa Release.
+# Para gerar uma versão nova: aumente appVersionCode/appVersionName em android/twa-manifest.json.
+name: Gerar APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/apk.yml']
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - name: Montar e assinar o APK
+        env:
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -o pipefail
+          {
+            if [ -z "$BUBBLEWRAP_KEYSTORE_PASSWORD" ]; then echo "ERRO: falta o segredo KEYSTORE_PASSWORD"; exit 1; fi
+            npm install -g @bubblewrap/cli@1.24.1
+            if [ ! -d "$ANDROID_HOME/tools" ]; then sudo ln -s "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"; fi
+            ls "$ANDROID_HOME"
+            mkdir -p ~/.bubblewrap
+            echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
+            cat ~/.bubblewrap/config.json
+            cd android
+            yes "" | bubblewrap update --skipVersionUpgrade
+            yes "" | bubblewrap build --skipPwaValidation
+            ls -la *.apk *.aab
+          } 2>&1 | tee "$RUNNER_TEMP/build.log"
+      - name: Publicar o APK
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          V=$(node -p "require('./android/twa-manifest.json').appVersionName")
+          C=$(node -p "require('./android/twa-manifest.json').appVersionCode")
+          cp android/app-release-signed.apk "TreinoNaSala-$V.apk"
+          gh release delete "v$V" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "v$V" "TreinoNaSala-$V.apk" --title "Treino na Sala $V" --notes "APK do app Treino na Sala, versão $V (código $C). Baixe o arquivo .apk abaixo e instale no Android."
+      - name: Guardar o registro em caso de erro
+        if: failure()
+        run: |
+          git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
+          cp "$RUNNER_TEMP/build.log" /tmp/build.log 2>/dev/null || echo "sem registro" > /tmp/build.log
+          git fetch origin build-logs 2>/dev/null && git checkout build-logs || git checkout --orphan build-logs
+          git rm -rq --cached . 2>/dev/null || true
+          cp /tmp/build.log build.log
+          git add build.log && git commit -m "Registro da montagem $GITHUB_RUN_ID" && git push -f origin HEAD:build-logs

@@ -47,3 +47,11 @@ App de treino em casa sem equipamento (força, condicionamento e perda de gordur
 - Tudo em português do Brasil, linguagem simples.
 - Ilustrações enxutas, só o necessário para entender o movimento.
 - Ele usa pelo celular e prefere que o Claude faça e confira tudo pelo chat.
+
+## APK para Android (TWA)
+
+- `android/twa-manifest.json`: configuração do app Android (pacote `io.github.mdmorais25bot.treinonasala`). Para uma versão nova do APK, aumente `appVersionCode` e `appVersionName`.
+- `android/android.keystore`: chave de assinatura (PKCS12, alias `treino`). A senha fica no segredo `KEYSTORE_PASSWORD` do repositório, nunca no código.
+- `.github/workflows/apk.yml`: monta o APK com Bubblewrap no GitHub Actions e publica em Releases. Se falhar, o registro vai para o branch `build-logs` (dá para ler pelo raw.githubusercontent.com).
+- O repositório `mdmorais25-bot/mdmorais25-bot.github.io` guarda `.well-known/assetlinks.json` com a impressão digital SHA-256 da chave. Sem ele, o app abre com barra de endereço.
+- O conteúdo do app continua vindo do site, então mudanças no `index.html` chegam ao APK sem gerar um novo.
