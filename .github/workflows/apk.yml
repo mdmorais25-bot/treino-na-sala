@@ -32,8 +32,8 @@ jobs:
             echo "{\"jdkPath\":\"$JAVA_HOME\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
             cat ~/.bubblewrap/config.json
             cd android
-            yes "" | bubblewrap update --skipVersionUpgrade
-            yes "" | bubblewrap build --skipPwaValidation
+            (yes "" || true) | bubblewrap update --skipVersionUpgrade
+            (yes "" || true) | bubblewrap build --skipPwaValidation
             ls -la *.apk *.aab
           } 2>&1 | tee "$RUNNER_TEMP/build.log"
       - name: Publicar o APK
